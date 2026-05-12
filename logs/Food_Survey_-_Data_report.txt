@@ -1,0 +1,22 @@
+
+============================================================
+DATASET INFORMATION
+============================================================
+Dataset Name: Food Survey - Data.csv
+Dataset Shape: (167, 14)
+Columns: ['Timestamp', 'Gender', 'Boarding', 'Grade', 'Athlete', 'Activities', 'DHBreakfast', 'NDHBreakfast', 'BClass', 'DHBoxes', 'NDHBoxes', 'NDHMeals', 'Nutrition', 'Money']
+
+============================================================
+TARGET COLUMN
+============================================================
+Selected Target Column: BClass
+
+============================================================
+FINAL RESULTS
+============================================================
+EDQS Before : 89.60
+EDQS After : 97.62
+ERI Score : 13.17
+RAI Score : 83.78
+Final Verdict : FAIR AI SYSTEM
+Final Dataset Shape : (194, 14)
