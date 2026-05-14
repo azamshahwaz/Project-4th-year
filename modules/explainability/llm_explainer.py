@@ -1,3 +1,38 @@
+# =========================================================
+# LLM EXPLAINER WITH GROQ INTEGRATION
+# =========================================================
+
+import os
+
+from dotenv import load_dotenv
+from groq import Groq
+
+# =========================================================
+# LOAD ENVIRONMENT VARIABLES
+# =========================================================
+
+load_dotenv()
+
+# =========================================================
+# GROQ API CONFIGURATION
+# =========================================================
+
+API_KEY = os.getenv("GROQ_API_KEY")
+
+MODEL_NAME = "llama-3.3-70b-versatile"
+
+# =========================================================
+# INITIALIZE GROQ CLIENT
+# =========================================================
+
+client = Groq(
+    api_key=API_KEY
+)
+
+# =========================================================
+# LLM EXPLANATION FUNCTION
+# =========================================================
+
 def explain_dataset(
     df,
     target_col,
@@ -6,7 +41,13 @@ def explain_dataset(
     bias_report
 ):
 
-    print("\n========== LLM DATASET EXPLANATION ==========")
+    print(
+        "\n========== LLM DATASET EXPLANATION =========="
+    )
+
+    # =====================================================
+    # BASIC DATASET INFO
+    # =====================================================
 
     total_rows, total_cols = df.shape
 
@@ -15,11 +56,12 @@ def explain_dataset(
         if v
     )
 
+    # =====================================================
+    # BIAS OBSERVATIONS
+    # =====================================================
+
     observations = []
 
-    # -----------------------------------
-    # BIAS OBSERVATIONS
-    # -----------------------------------
     if bias_count > 3:
 
         observations.append(
@@ -32,40 +74,120 @@ def explain_dataset(
             "Limited bias detected"
         )
 
-    # -----------------------------------
+    # =====================================================
     # EDQS OBSERVATION
-    # -----------------------------------
+    # =====================================================
+
     if edqs > 80:
 
         observations.append(
             "Dataset quality is high"
         )
 
-    else:
+    elif edqs > 60:
 
         observations.append(
             "Dataset quality is moderate"
         )
 
-    # -----------------------------------
+    else:
+
+        observations.append(
+            "Dataset quality is poor"
+        )
+
+    # =====================================================
     # ERI OBSERVATION
-    # -----------------------------------
+    # =====================================================
+
     if eri < 30:
 
         observations.append(
             "Ethical risk is low"
         )
 
+    elif eri < 60:
+
+        observations.append(
+            "Ethical risk is moderate"
+        )
+
     else:
 
         observations.append(
-            "Ethical risk needs attention"
+            "Ethical risk is high"
         )
 
-    # -----------------------------------
-    # FINAL EXPLANATION
-    # -----------------------------------
-    explanation = f"""
+    # =====================================================
+    # DETECT NUMERICAL & CATEGORICAL FEATURES
+    # =====================================================
+
+    numerical_cols = df.select_dtypes(
+        include=['int64', 'float64']
+    ).columns.tolist()
+
+    categorical_cols = df.select_dtypes(
+        include=['object']
+    ).columns.tolist()
+
+    # =====================================================
+    # MISSING VALUES
+    # =====================================================
+
+    missing_values = (
+        df.isnull().sum().sum()
+    )
+
+    # =====================================================
+    # DUPLICATES
+    # =====================================================
+
+    duplicate_rows = (
+        df.duplicated().sum()
+    )
+
+    # =====================================================
+    # TARGET DISTRIBUTION
+    # =====================================================
+
+    target_distribution = (
+        df[target_col]
+        .value_counts()
+        .to_dict()
+    )
+
+    # =====================================================
+    # DETECTED BIASES
+    # =====================================================
+
+    detected_biases = [
+
+        bias
+
+        for bias, status
+
+        in bias_report.items()
+
+        if status
+    ]
+
+    if len(detected_biases) == 0:
+
+        detected_biases_text = (
+            "No major biases detected"
+        )
+
+    else:
+
+        detected_biases_text = (
+            ", ".join(detected_biases)
+        )
+
+    # =====================================================
+    # LOCAL RULE-BASED EXPLANATION
+    # =====================================================
+
+    local_explanation = f"""
 
 DATASET SUMMARY
 --------------------------------
@@ -76,9 +198,29 @@ Total Features : {total_cols}
 
 Target Column  : {target_col}
 
+Numerical Features : {len(numerical_cols)}
+
+Categorical Features : {len(categorical_cols)}
+
+Missing Values : {missing_values}
+
+Duplicate Rows : {duplicate_rows}
+
 EDQS Score     : {edqs:.2f}
 
 ERI Score      : {eri:.2f}
+
+
+TARGET DISTRIBUTION
+--------------------------------
+
+{target_distribution}
+
+
+DETECTED BIASES
+--------------------------------
+
+{detected_biases_text}
 
 
 KEY OBSERVATIONS
@@ -103,6 +245,197 @@ data fairness, reduced ethical risks,
 and enhanced overall dataset reliability.
 """
 
-    print(explanation)
+    # =====================================================
+    # PRINT LOCAL EXPLANATION
+    # =====================================================
 
-    return explanation
+    print(local_explanation)
+
+    # =====================================================
+    # CHECK API KEY
+    # =====================================================
+
+    if not API_KEY:
+
+        print(
+            "\nGROQ_API_KEY not found."
+        )
+
+        print(
+            "\nUsing Local Explanation Only."
+        )
+
+        return local_explanation
+
+    # =====================================================
+    # LLM PROMPT
+    # =====================================================
+
+    prompt = f"""
+You are an expert Responsible AI analyst.
+
+Analyze the following Responsible AI pipeline results.
+
+DATASET DETAILS:
+------------------------
+
+Total Rows: {total_rows}
+
+Total Columns: {total_cols}
+
+Target Column: {target_col}
+
+Numerical Features: {len(numerical_cols)}
+
+Categorical Features: {len(categorical_cols)}
+
+Missing Values: {missing_values}
+
+Duplicate Rows: {duplicate_rows}
+
+EDQS Score: {edqs:.2f}
+
+ERI Score: {eri:.2f}
+
+Target Distribution:
+{target_distribution}
+
+Detected Biases:
+{detected_biases_text}
+
+TASK:
+------------------------
+
+Provide:
+
+1. Dataset quality analysis
+
+2. Bias and fairness interpretation
+
+3. Ethical risk analysis
+
+4. AI reliability assessment
+
+5. Recommendations for improvement
+
+6. Final Responsible AI verdict
+
+Use professional but simple language.
+"""
+
+    # =====================================================
+    # GROQ API REQUEST
+    # =====================================================
+
+    try:
+
+        print(
+            "\nGenerating AI Explanation "
+            "using Groq..."
+        )
+
+        response = (
+            client.chat.completions.create(
+
+                model=MODEL_NAME,
+
+                messages=[
+
+                    {
+                        "role": "system",
+
+                        "content":
+                        (
+                            "You are an expert in "
+                            "Responsible AI, "
+                            "Ethical AI, "
+                            "Bias Detection, "
+                            "and Fairness Analysis."
+                        )
+                    },
+
+                    {
+                        "role": "user",
+
+                        "content": prompt
+                    }
+                ],
+
+                temperature=0.7,
+
+                max_tokens=1500
+            )
+        )
+
+        # =================================================
+        # PARSE RESPONSE
+        # =================================================
+
+        ai_explanation = (
+
+            response
+            .choices[0]
+            .message.content
+        )
+
+        # =================================================
+        # PRINT AI RESPONSE
+        # =================================================
+
+        print(
+            "\n========== AI GENERATED "
+            "EXPLANATION ==========\n"
+        )
+
+        print(ai_explanation)
+
+        print(
+            "\n===================================="
+        )
+
+        # =================================================
+        # SAVE REPORT
+        # =================================================
+
+        os.makedirs(
+            "outputs",
+            exist_ok=True
+        )
+
+        report_path = os.path.join(
+            "outputs",
+            "llm_explanation.txt"
+        )
+
+        with open(
+            report_path,
+            "w",
+            encoding="utf-8"
+        ) as file:
+
+            file.write(ai_explanation)
+
+        print(
+            f"\nAI Explanation Saved:\n"
+            f"{report_path}"
+        )
+
+        return ai_explanation
+
+    # =====================================================
+    # ERROR HANDLING
+    # =====================================================
+
+    except Exception as e:
+
+        print(
+            "\nLLM API Integration Failed"
+        )
+
+        print(f"\nReason:\n{e}")
+
+        print(
+            "\nUsing Local Explanation Only."
+        )
+
+        return local_explanation

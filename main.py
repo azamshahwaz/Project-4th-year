@@ -1,4 +1,3 @@
-# %%
 # =========================================================
 # RESPONSIBLE AI PIPELINE
 # FINAL CLEAN UNIVERSAL VERSION
@@ -28,7 +27,6 @@ except:
     pass
 
 
-# %%
 # =========================================================
 # IMPORT MODULES
 # =========================================================
@@ -125,8 +123,19 @@ from modules.utils.logger import (
     log_section
 )
 
+from modules.synthetic.synthetic_generator import (
+    generate_synthetic_data
+)
 
-# %%
+from modules.reporting.pdf_report import (
+    generate_pdf_report
+)
+
+from modules.utils.system_info import (
+    get_system_info
+)
+
+
 # =========================================================
 # UNIVERSAL FILE PICKER
 # =========================================================
@@ -185,7 +194,6 @@ def choose_file():
         )
 
 
-# %%
 # =========================================================
 # AUTO DETECT CATEGORICAL COLUMNS
 # =========================================================
@@ -215,7 +223,6 @@ def detect_categorical_columns(
     return categorical_cols
 
 
-# %%
 # =========================================================
 # TARGET COLUMN DETECTION
 # =========================================================
@@ -249,7 +256,6 @@ def detect_target_column(df):
     return df.columns[-1]
 
 
-# %%
 # =========================================================
 # PRINT SECTION
 # =========================================================
@@ -259,7 +265,6 @@ def print_section(title):
     print(f"\n{'=' * 15} {title} {'=' * 15}")
 
 
-# %%
 # =========================================================
 # MAIN PIPELINE
 # =========================================================
@@ -305,6 +310,22 @@ def main():
     write_log(f"Columns: {df.columns.tolist()}")
 
     # =====================================================
+    # SYSTEM CONFIGURATION
+    # =====================================================
+
+    system_info = get_system_info()
+
+    log_section(
+        "SYSTEM CONFIGURATION"
+    )
+
+    for key, value in system_info.items():
+
+        write_log(
+            f"{key}: {value}"
+        )
+
+    # =====================================================
     # VALIDATION
     # =====================================================
 
@@ -335,6 +356,66 @@ def main():
     df, encoders = preprocess_dataset(df)
 
     print("\nPreprocessing Completed")
+
+    # =====================================================
+    # SYNTHETIC DATA GENERATION
+    # =====================================================
+
+    print_section(
+        "SYNTHETIC DATA GENERATION"
+    )
+
+    try:
+
+        temp_target = detect_target_column(df)
+
+        df = generate_synthetic_data(
+
+            df,
+
+            target_col=temp_target,
+
+            ratio=0.30,
+
+            noise_factor=0.02,
+
+            random_state=42
+        )
+
+        os.makedirs(
+            "outputs",
+            exist_ok=True
+        )
+
+        df.to_csv(
+
+            "outputs/synthetic_dataset.csv",
+
+            index=False
+        )
+
+        print(
+            "\nSynthetic Dataset Saved"
+        )
+
+    except Exception as e:
+
+        print(
+            "\nSynthetic Data Generation Failed"
+        )
+
+        print(e)
+
+    # =====================================================
+    # REMOVE HELPER COLUMN
+    # =====================================================
+
+    if "data_type" in df.columns:
+
+        df.drop(
+            columns=["data_type"],
+            inplace=True
+        )
 
     # =====================================================
     # TARGET DETECTION
@@ -655,11 +736,16 @@ def main():
 
     try:
 
-        explain_dataset(
+        ai_explanation = explain_dataset(
+
             df,
+
             target_col,
+
             edqs_after,
+
             eri,
+
             final_bias_report
         )
 
@@ -668,6 +754,10 @@ def main():
         print("\nLLM Explanation Failed")
 
         print(e)
+
+        ai_explanation = (
+            "AI explanation generation failed."
+        )
 
     # =====================================================
     # RAI
@@ -705,6 +795,62 @@ def main():
         verdict = "HIGH RISK AI SYSTEM"
 
     print(f"\nFinal Verdict : {verdict}")
+
+    # =====================================================
+    # PDF REPORT GENERATION
+    # =====================================================
+
+    print_section(
+        "PDF REPORT GENERATION"
+    )
+
+    try:
+
+        report_content = f"""
+
+RESPONSIBLE AI REPORT
+
+====================================
+
+Dataset:
+{dataset_name}
+
+EDQS Score:
+{edqs_after:.2f}
+
+ERI Score:
+{eri:.2f}
+
+RAI Score:
+{rai:.2f}
+
+Final Verdict:
+{verdict}
+
+====================================
+
+AI EXPLANATION
+
+====================================
+
+{ai_explanation}
+
+"""
+
+        generate_pdf_report(
+
+            "outputs/responsible_ai_report.pdf",
+
+            report_content
+        )
+
+    except Exception as e:
+
+        print(
+            "\nPDF Report Generation Failed"
+        )
+
+        print(e)
 
     # =====================================================
     # SAVE FINAL DATASET
@@ -769,7 +915,6 @@ def main():
     )
 
 
-# %%
 # =========================================================
 # RUN PIPELINE
 # =========================================================
