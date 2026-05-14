@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # =========================================================
 # RESPONSIBLE AI USING GENERATIVE AI
 # FULL REQUIREMENTS.TXT
@@ -178,6 +177,3 @@ tk
 # =========================================================
 setuptools
 wheel
-=======
-
->>>>>>> 0279c41eaf7c3e8bae8e13ac494893a5e7ebeb07
