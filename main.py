@@ -398,6 +398,22 @@ def main():
             "\nSynthetic Dataset Saved"
         )
 
+        # =================================================
+        # SYNTHETIC DATA LOGGING
+        # =================================================
+
+        log_section(
+            "SYNTHETIC DATA GENERATION"
+        )
+
+        write_log(
+            f"Synthetic Dataset Shape : {df.shape}"
+        )
+
+        write_log(
+            "Synthetic data generation completed successfully."
+        )
+
     except Exception as e:
 
         print(
@@ -862,7 +878,7 @@ AI EXPLANATION
 
         "outputs",
 
-        "final_processed_dataset.csv"
+        "final_responsible_ai_dataset.csv"
     )
 
     df.to_csv(
