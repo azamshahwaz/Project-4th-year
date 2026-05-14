@@ -1,5 +1,6 @@
 # =========================================================
 # LLM EXPLAINER WITH GROQ INTEGRATION
+# FINAL IMPROVED VERSION
 # =========================================================
 
 import os
@@ -7,11 +8,13 @@ import os
 from dotenv import load_dotenv
 from groq import Groq
 
+
 # =========================================================
 # LOAD ENVIRONMENT VARIABLES
 # =========================================================
 
 load_dotenv()
+
 
 # =========================================================
 # GROQ API CONFIGURATION
@@ -21,6 +24,7 @@ API_KEY = os.getenv("GROQ_API_KEY")
 
 MODEL_NAME = "llama-3.3-70b-versatile"
 
+
 # =========================================================
 # INITIALIZE GROQ CLIENT
 # =========================================================
@@ -28,6 +32,7 @@ MODEL_NAME = "llama-3.3-70b-versatile"
 client = Groq(
     api_key=API_KEY
 )
+
 
 # =========================================================
 # LLM EXPLANATION FUNCTION
@@ -119,24 +124,61 @@ def explain_dataset(
         )
 
     # =====================================================
-    # DETECT NUMERICAL & CATEGORICAL FEATURES
+    # EXCLUDE HELPER COLUMNS
     # =====================================================
 
-    numerical_cols = df.select_dtypes(
-        include=['int64', 'float64']
-    ).columns.tolist()
+    exclude_cols = [
+        target_col,
+        "data_type"
+    ]
 
-    categorical_cols = df.select_dtypes(
-        include=['object']
-    ).columns.tolist()
+    # =====================================================
+    # DETECT NUMERICAL FEATURES
+    # =====================================================
+
+    numerical_cols = [
+
+        col
+
+        for col in df.select_dtypes(
+            include=['int64', 'float64']
+        ).columns
+
+        if col not in exclude_cols
+    ]
+
+    # =====================================================
+    # DETECT CATEGORICAL FEATURES
+    # =====================================================
+
+    categorical_cols = [
+
+        col
+
+        for col in df.select_dtypes(
+            include=['object']
+        ).columns
+
+        if col not in exclude_cols
+    ]
 
     # =====================================================
     # MISSING VALUES
     # =====================================================
 
-    missing_values = (
+    missing_values = int(
         df.isnull().sum().sum()
     )
+
+    missing_percentage = (
+
+        missing_values
+
+        /
+
+        (df.shape[0] * df.shape[1])
+
+    ) * 100
 
     # =====================================================
     # DUPLICATES
@@ -151,8 +193,11 @@ def explain_dataset(
     # =====================================================
 
     target_distribution = (
+
         df[target_col]
+
         .value_counts()
+
         .to_dict()
     )
 
@@ -204,6 +249,8 @@ Categorical Features : {len(categorical_cols)}
 
 Missing Values : {missing_values}
 
+Missing Percentage : {missing_percentage:.2f}%
+
 Duplicate Rows : {duplicate_rows}
 
 EDQS Score     : {edqs:.2f}
@@ -231,6 +278,15 @@ KEY OBSERVATIONS
 • {observations[1]}
 
 • {observations[2]}
+
+
+SYNTHETIC DATA ANALYSIS
+--------------------------------
+
+The dataset was enhanced using
+controlled synthetic data generation
+to improve minority representation
+and reduce imbalance issues.
 
 
 INTERPRETATION
@@ -291,6 +347,8 @@ Categorical Features: {len(categorical_cols)}
 
 Missing Values: {missing_values}
 
+Missing Percentage: {missing_percentage:.2f}%
+
 Duplicate Rows: {duplicate_rows}
 
 EDQS Score: {edqs:.2f}
@@ -302,6 +360,10 @@ Target Distribution:
 
 Detected Biases:
 {detected_biases_text}
+
+Synthetic Data Usage:
+The dataset includes controlled synthetic
+data generation for balancing minority classes.
 
 TASK:
 ------------------------
@@ -374,7 +436,9 @@ Use professional but simple language.
         ai_explanation = (
 
             response
+
             .choices[0]
+
             .message.content
         )
 
