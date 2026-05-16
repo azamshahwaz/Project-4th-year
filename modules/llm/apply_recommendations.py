@@ -82,12 +82,37 @@ def apply_llm_recommendations(
         )
 
     # =====================================
+    # CHECK CLASS IMBALANCE
+    # =====================================
+
+    imbalance_ratio = 1.0
+
+    if target_col in df.columns:
+
+        class_distribution = (
+            df[target_col]
+            .value_counts(normalize=True)
+        )
+
+        if len(class_distribution) > 1:
+
+            imbalance_ratio = (
+                class_distribution.min()
+                / class_distribution.max()
+            )
+
+    print(
+        f"Imbalance Ratio : "
+        f"{imbalance_ratio:.2f}"
+    )
+
+    # =====================================
     # APPLY SMOTE
     # =====================================
 
     if recommendations.get(
         "apply_smote"
-    ):
+    ) and imbalance_ratio < 0.7:
 
         df = apply_smote(
 
@@ -100,6 +125,12 @@ def apply_llm_recommendations(
 
         print(
             "SMOTE Applied"
+        )
+
+    else:
+
+        print(
+            "SMOTE Skipped"
         )
 
     # =====================================

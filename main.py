@@ -14,6 +14,13 @@ from tkinter import filedialog
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from sklearn.model_selection import train_test_split
+
+from fairlearn.metrics import (
+    demographic_parity_difference,
+    equalized_odds_difference
+)
+
 # =========================================================
 # JUPYTER SUPPORT
 # =========================================================
@@ -98,8 +105,28 @@ from modules.metrics.rai import (
     calculate_rai
 )
 
+from modules.model.train_model import (
+    train_model
+)
+
+from modules.model.evaluate_model import (
+    evaluate_model
+)
+
+from modules.model.save_model import (
+    save_model
+)
+
 from modules.explainability.llm_explainer import (
     explain_dataset
+)
+
+from modules.llm.llm_decision_engine import (
+    get_llm_recommendations
+)
+
+from modules.llm.apply_recommendations import (
+    apply_llm_recommendations
 )
 
 from modules.visualization.before_after_graphs import (
@@ -256,7 +283,133 @@ def detect_target_column(df):
 
     return df.columns[-1]
 
+# =========================================================
+# SYSTEM INFO
+# =========================================================
 
+import platform
+import psutil
+
+def get_system_info():
+
+    try:
+
+        info = {
+
+            "OS": platform.system(),
+
+            "OS Version": platform.version(),
+
+            "Processor": platform.processor(),
+
+            "Machine": platform.machine(),
+
+            "RAM": f"{round(psutil.virtual_memory().total / (1024**3), 2)} GB"
+        }
+
+        return info
+
+    except Exception as e:
+
+        return {
+
+            "System Info Error": str(e)
+        }
+
+# =========================================================
+# SHAP EXPLAINABILITY
+# =========================================================
+
+def generate_shap(
+    model,
+    X_test
+):
+
+    try:
+
+        import shap
+
+        explainer = shap.TreeExplainer(
+            model
+        )
+
+        shap_values = explainer.shap_values(
+            X_test
+        )
+
+        print(
+            "\nSHAP Analysis Completed"
+        )
+
+    except Exception as e:
+
+        print(
+            "\nSHAP Error"
+        )
+
+        print(e)
+
+# =========================================================
+# REPORT GENERATOR
+# =========================================================
+
+def generate_report():
+
+    print(
+        "\nFinal Report Generated Successfully"
+    )
+
+# =========================================================
+# PDF REPORT GENERATOR
+# =========================================================
+
+from reportlab.platypus import (
+
+    SimpleDocTemplate,
+
+    Paragraph,
+
+    Spacer
+)
+
+from reportlab.lib.styles import (
+    getSampleStyleSheet
+)
+
+def generate_pdf_report(
+
+    output_path,
+
+    content
+):
+
+    doc = SimpleDocTemplate(
+        output_path
+    )
+
+    styles = getSampleStyleSheet()
+
+    story = []
+
+    for line in content.split("\n"):
+
+        story.append(
+
+            Paragraph(
+                line,
+                styles["BodyText"]
+            )
+        )
+
+        story.append(
+            Spacer(1, 10)
+        )
+
+    doc.build(story)
+
+    print(
+        "\nPDF Report Generated Successfully"
+    )
 # %%
 # =========================================================
 # PRINT SECTION
@@ -269,6 +422,7 @@ def print_section(title):
         f"{title} "
         f"{'=' * 15}"
     )
+
 
 
 # %%
@@ -381,71 +535,7 @@ def main():
     print(
         "\nPreprocessing Completed"
     )
-
-    # =====================================================
-    # SYNTHETIC DATA GENERATION
-    # =====================================================
-
-    print_section(
-        "SYNTHETIC DATA GENERATION"
-    )
-
-    try:
-
-        temp_target = detect_target_column(df)
-
-        df = generate_synthetic_data(
-
-            df,
-
-            target_col=temp_target,
-
-            ratio=0.30,
-
-            noise_factor=0.02,
-
-            random_state=42
-        )
-
-        os.makedirs(
-            "outputs",
-            exist_ok=True
-        )
-
-        df.to_csv(
-
-            "outputs/synthetic_dataset.csv",
-
-            index=False
-        )
-
-        print(
-            "\nSynthetic Dataset Saved"
-        )
-
-        # =================================================
-        # SYNTHETIC DATA LOGGING
-        # =================================================
-
-        log_section(
-            "SYNTHETIC DATA GENERATION"
-        )
-
-        write_log(
-            f"Synthetic Dataset Shape : {df.shape}"
-        )
-
-        write_log(
-            "Synthetic data generation completed successfully."
-        )
-
-    except Exception as e:
-
-        print(
-            "\nSynthetic Data Generation Failed"
-        )
-
-        print(e)
+    
 
     # =====================================================
     # REMOVE HELPER COLUMN
@@ -923,32 +1013,115 @@ ERI : {eri}
         "LLM DECISION ENGINE"
     )
 
-    recommendations = (
-        get_llm_recommendations(
-            metrics_text
+    previous_edqs = edqs_after
+
+    max_iterations = 5
+
+    for iteration in range(max_iterations):
+
+        print(
+            f"\n========== LLM ITERATION "
+            f"{iteration + 1} =========="
         )
-    )
 
-    print(
-        "\nLLM Recommendations"
-    )
+        # =============================================
+        # UPDATED METRICS
+        # =============================================
 
-    print(recommendations)
+        updated_metrics = calculate_edqs(
+            df,
+            target_col
+        )
 
-    # =====================================================
-    # APPLY LLM RECOMMENDATIONS
-    # =====================================================
+        metrics_text = f"""
 
-    df = apply_llm_recommendations(
+EDQS : {updated_metrics['edqs']}
 
-        df,
+Missing Percentage :
+{updated_metrics['missing_pct']}
 
-        recommendations,
+Imbalance Percentage :
+{updated_metrics['imbalance_pct']}
 
-        target_col,
+"""
 
-        categorical_cols
-    )
+        # =============================================
+        # GET LLM RECOMMENDATIONS
+        # =============================================
+
+        recommendations = (
+            get_llm_recommendations(
+                metrics_text
+            )
+        )
+
+        print(
+            "\nLLM Recommendations"
+        )
+
+        print(recommendations)
+
+        # =============================================
+        # APPLY RECOMMENDATIONS
+        # =============================================
+
+        df = apply_llm_recommendations(
+
+            df,
+
+            recommendations,
+
+            target_col,
+
+            categorical_cols
+        )
+
+        # =============================================
+        # RECALCULATE EDQS
+        # =============================================
+
+        recalculated_metrics = calculate_edqs(
+            df,
+            target_col
+        )
+
+        new_edqs = (
+            recalculated_metrics["edqs"]
+        )
+
+        print(
+            f"\nUpdated EDQS : "
+            f"{new_edqs:.2f}"
+        )
+
+        # =============================================
+        # CHECK IMPROVEMENT
+        # =============================================
+
+        improvement = abs(
+            new_edqs - previous_edqs
+        )
+
+        print(
+            f"EDQS Improvement : "
+            f"{improvement:.2f}"
+        )
+
+        # =============================================
+        # STOP CONDITION
+        # =============================================
+
+        if improvement < 1:
+
+            print(
+                "\nLLM Optimization Stabilized"
+            )
+
+            break
+
+        previous_edqs = new_edqs
+
+    edqs_after = previous_edqs
 
     # =====================================================
     # LLM EXPLANATION
@@ -1214,6 +1387,7 @@ ERI : {eri}
         f"{verdict}"
     )
 
+    ai_explanation = recommendations
     # =====================================================
     # PDF REPORT GENERATION
     # =====================================================
