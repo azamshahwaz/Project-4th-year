@@ -1,20 +1,45 @@
 # =========================================================
 # RESPONSIBLE AI PIPELINE
-# FINAL ADVANCED UNIVERSAL VERSION
+# FINAL OPTIMIZED UNIVERSAL VERSION
+# FULLY FIXED GRAPH + MEMORY VERSION
 # =========================================================
 
 import os
+import gc
 import warnings
 
 warnings.filterwarnings("ignore")
+
+# =========================================================
+# FAST MODE
+# =========================================================
+
+FAST_MODE = True
+
+# =========================================================
+# BASIC LIBRARIES
+# =========================================================
 
 import tkinter as tk
 from tkinter import filedialog
 
 import pandas as pd
+import numpy as np
+
 import matplotlib.pyplot as plt
+import seaborn as sns
+
+from datetime import datetime
+
+# =========================================================
+# SKLEARN
+# =========================================================
 
 from sklearn.model_selection import train_test_split
+
+# =========================================================
+# FAIRLEARN
+# =========================================================
 
 from fairlearn.metrics import (
     demographic_parity_difference,
@@ -26,17 +51,31 @@ from fairlearn.metrics import (
 # =========================================================
 
 try:
+
     get_ipython().run_line_magic(
         'matplotlib',
         'inline'
     )
+
 except:
     pass
 
-
-# %%
 # =========================================================
-# IMPORT MODULES
+# REPORTLAB
+# =========================================================
+
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer
+)
+
+from reportlab.lib.styles import (
+    getSampleStyleSheet
+)
+
+# =========================================================
+# PROJECT MODULES
 # =========================================================
 
 from modules.dataset.loader import load_dataset
@@ -73,14 +112,6 @@ from modules.synthetic.ctgan_generator import (
     generate_ctgan_data
 )
 
-from modules.bias.bias_detector import (
-    detect_all_biases
-)
-
-from modules.bias.bias_table import (
-    generate_bias_table
-)
-
 from modules.bias.fairness_metrics import (
     calculate_fairness
 )
@@ -89,20 +120,8 @@ from modules.bias.fairness_fix import (
     apply_fairness_fix
 )
 
-from modules.bias.proxy_bias_remover import (
-    remove_proxy_bias
-)
-
 from modules.metrics.edqs import (
     calculate_edqs
-)
-
-from modules.metrics.eri import (
-    calculate_eri
-)
-
-from modules.metrics.rai import (
-    calculate_rai
 )
 
 from modules.model.train_model import (
@@ -115,18 +134,6 @@ from modules.model.evaluate_model import (
 
 from modules.model.save_model import (
     save_model
-)
-
-from modules.explainability.llm_explainer import (
-    explain_dataset
-)
-
-from modules.llm.llm_decision_engine import (
-    get_llm_recommendations
-)
-
-from modules.llm.apply_recommendations import (
-    apply_llm_recommendations
 )
 
 from modules.visualization.before_after_graphs import (
@@ -151,12 +158,20 @@ from modules.visualization.edqs_graph import (
 
 from modules.utils.logger import (
     set_log_file,
-    write_log,
-    log_section
+    write_log
 )
+# =========================================================
+# MEMORY OPTIMIZER
+# =========================================================
 
+def optimize_memory():
 
-# %%
+    gc.collect()
+
+    print(
+        "\nMemory Optimization Completed"
+    )
+
 # =========================================================
 # UNIVERSAL FILE PICKER
 # =========================================================
@@ -190,69 +205,34 @@ def choose_file():
 
     except Exception as e:
 
-        print(
-            "\nTkinter File Picker Failed"
-        )
-
-        print(f"Reason: {e}")
-
-    print("\nEnter CSV File Path Manually")
+        print(e)
 
     file_path = input(
-        "CSV Path: "
+        "\nEnter CSV Path: "
     ).strip()
-
-    file_path = file_path.replace('"', '')
 
     if os.path.exists(file_path):
 
-        print(
-            "\nDataset Path Accepted"
-        )
-
         return file_path
 
-    else:
+    raise FileNotFoundError(
+        f"\nFile Not Found:\n{file_path}"
+    )
 
-        raise FileNotFoundError(
-
-            f"\nFile Not Found:\n{file_path}"
-        )
-
-
-# %%
 # =========================================================
-# DETECT CATEGORICAL COLUMNS
+# PRINT SECTION
 # =========================================================
 
-def detect_categorical_columns(
-    df,
-    target_col
-):
+def print_section(title):
 
-    categorical_cols = []
+    print(
+        f"\n{'=' * 20} "
+        f"{title} "
+        f"{'=' * 20}"
+    )
 
-    for col in df.columns:
-
-        if col == target_col:
-            continue
-
-        unique_count = df[col].nunique()
-
-        if df[col].dtype == "object":
-
-            categorical_cols.append(col)
-
-        elif unique_count <= 10:
-
-            categorical_cols.append(col)
-
-    return categorical_cols
-
-
-# %%
 # =========================================================
-# TARGET COLUMN DETECTION
+# DETECT TARGET COLUMN
 # =========================================================
 
 def detect_target_column(df):
@@ -284,102 +264,114 @@ def detect_target_column(df):
     return df.columns[-1]
 
 # =========================================================
-# SYSTEM INFO
+# DETECT CATEGORICAL COLUMNS
 # =========================================================
 
-import platform
-import psutil
+def detect_categorical_columns(
+    df,
+    target_col
+):
 
-def get_system_info():
+    categorical_cols = []
 
-    try:
+    for col in df.columns:
 
-        info = {
+        if col == target_col:
+            continue
 
-            "OS": platform.system(),
+        if df[col].dtype == "object":
 
-            "OS Version": platform.version(),
+            categorical_cols.append(col)
 
-            "Processor": platform.processor(),
+        elif df[col].nunique() <= 10:
 
-            "Machine": platform.machine(),
+            categorical_cols.append(col)
 
-            "RAM": f"{round(psutil.virtual_memory().total / (1024**3), 2)} GB"
-        }
-
-        return info
-
-    except Exception as e:
-
-        return {
-
-            "System Info Error": str(e)
-        }
+    return categorical_cols
 
 # =========================================================
-# SHAP EXPLAINABILITY
+# GRAPH OUTPUT DIRECTORY
 # =========================================================
 
-def generate_shap(
-    model,
-    X_test
+def create_graph_output_folder(dataset_name):
+
+    timestamp = datetime.now().strftime(
+        "%Y%m%d_%H%M%S"
+    )
+
+    graph_dir = os.path.join(
+        "outputs",
+        "graphs",
+        dataset_name.replace(".csv", ""),
+        timestamp
+    )
+
+    os.makedirs(
+        graph_dir,
+        exist_ok=True
+    )
+
+    return graph_dir
+
+# =========================================================
+# SAVE GRAPH FUNCTION
+# =========================================================
+
+def save_current_graph(
+    graph_dir,
+    graph_name
 ):
 
     try:
 
-        import shap
-
-        explainer = shap.TreeExplainer(
-            model
+        os.makedirs(
+            graph_dir,
+            exist_ok=True
         )
 
-        shap_values = explainer.shap_values(
-            X_test
+        output_path = os.path.join(
+            graph_dir,
+            f"{graph_name}.png"
+        )
+
+        plt.draw()
+
+        plt.tight_layout()
+
+        plt.savefig(
+
+            output_path,
+
+            dpi=200,
+
+            bbox_inches='tight',
+
+            facecolor='white'
         )
 
         print(
-            "\nSHAP Analysis Completed"
+            f"\nGraph Saved Successfully:"
+            f"\n{output_path}"
         )
+
+        plt.close()
+
+        optimize_memory()
 
     except Exception as e:
 
         print(
-            "\nSHAP Error"
+            "\nGraph Save Failed"
         )
 
         print(e)
 
 # =========================================================
-# REPORT GENERATOR
-# =========================================================
-
-def generate_report():
-
-    print(
-        "\nFinal Report Generated Successfully"
-    )
-
-# =========================================================
 # PDF REPORT GENERATOR
 # =========================================================
 
-from reportlab.platypus import (
-
-    SimpleDocTemplate,
-
-    Paragraph,
-
-    Spacer
-)
-
-from reportlab.lib.styles import (
-    getSampleStyleSheet
-)
-
 def generate_pdf_report(
-
     output_path,
-
     content
 ):
 
@@ -410,22 +402,7 @@ def generate_pdf_report(
     print(
         "\nPDF Report Generated Successfully"
     )
-# %%
-# =========================================================
-# PRINT SECTION
-# =========================================================
 
-def print_section(title):
-
-    print(
-        f"\n{'=' * 15} "
-        f"{title} "
-        f"{'=' * 15}"
-    )
-
-
-
-# %%
 # =========================================================
 # MAIN PIPELINE
 # =========================================================
@@ -442,31 +419,31 @@ def main():
 
     file_path = choose_file()
 
-    if not file_path:
-
-        print("No Dataset Selected")
-
-        return
-
     # =====================================================
     # LOAD DATASET
     # =====================================================
 
     df = load_dataset(file_path)
 
-    # =====================================================
-    # LOGGER
-    # =====================================================
+    optimize_memory()
 
     dataset_name = os.path.basename(
         file_path
     )
 
-    set_log_file(dataset_name)
+    # =====================================================
+    # GRAPH DIRECTORY
+    # =====================================================
 
-    log_section(
-        "DATASET INFORMATION"
+    graph_dir = create_graph_output_folder(
+        dataset_name
     )
+
+    # =====================================================
+    # LOGGER
+    # =====================================================
+
+    set_log_file(dataset_name)
 
     write_log(
         f"Dataset Name: {dataset_name}"
@@ -476,33 +453,9 @@ def main():
         f"Dataset Shape: {df.shape}"
     )
 
-    write_log(
-        f"Columns: {df.columns.tolist()}"
-    )
-
-    # =====================================================
-    # SYSTEM CONFIGURATION
-    # =====================================================
-
-    system_info = get_system_info()
-
-    log_section(
-        "SYSTEM CONFIGURATION"
-    )
-
-    for key, value in system_info.items():
-
-        write_log(
-            f"{key}: {value}"
-        )
-
     # =====================================================
     # VALIDATION
     # =====================================================
-
-    print_section(
-        "DATASET VALIDATION"
-    )
 
     validate_dataset(df)
 
@@ -510,14 +463,10 @@ def main():
     # SUMMARY
     # =====================================================
 
-    print_section(
-        "DATASET SUMMARY"
-    )
-
     dataset_summary(df)
 
     # =====================================================
-    # RAW COPY
+    # COPY BEFORE PROCESSING
     # =====================================================
 
     df_before = df.copy()
@@ -526,19 +475,16 @@ def main():
     # PREPROCESSING
     # =====================================================
 
-    print_section(
-        "PREPROCESSING"
-    )
-
     df, encoders = preprocess_dataset(df)
+
+    optimize_memory()
 
     print(
         "\nPreprocessing Completed"
     )
-    
 
     # =====================================================
-    # REMOVE HELPER COLUMN
+    # REMOVE EXTRA COLUMN
     # =====================================================
 
     if "data_type" in df.columns:
@@ -549,23 +495,18 @@ def main():
         )
 
     # =====================================================
-    # TARGET DETECTION
+    # TARGET COLUMN
     # =====================================================
 
     target_col = detect_target_column(df)
 
     print(
-        f"\nSelected Target Column: "
-        f"{target_col}"
+        f"\nTarget Column: {target_col}"
     )
 
     # =====================================================
     # EDQS BEFORE
     # =====================================================
-
-    print_section(
-        "EDQS BEFORE RECTIFICATION"
-    )
 
     edqs_before_metrics = calculate_edqs(
         df,
@@ -576,17 +517,9 @@ def main():
         edqs_before_metrics["edqs"]
     )
 
-    for key, value in edqs_before_metrics.items():
-
-        print(f"{key} : {value}")
-
     # =====================================================
     # IMBALANCE DETECTION
     # =====================================================
-
-    print_section(
-        "IMBALANCE DETECTION"
-    )
 
     imbalance_ratio, class_counts = (
         detect_imbalance(
@@ -598,12 +531,8 @@ def main():
     imbalance_report(class_counts)
 
     # =====================================================
-    # SMOTE
+    # CATEGORICAL COLUMNS
     # =====================================================
-
-    print_section(
-        "SMOTE BALANCING"
-    )
 
     categorical_cols = (
         detect_categorical_columns(
@@ -612,11 +541,9 @@ def main():
         )
     )
 
-    print(
-        "\nDetected Categorical Columns:"
-    )
-
-    print(categorical_cols)
+    # =====================================================
+    # SMOTE
+    # =====================================================
 
     try:
 
@@ -626,9 +553,9 @@ def main():
             categorical_cols
         )
 
-    except Exception as e:
+        optimize_memory()
 
-        print("\nSMOTE Failed")
+    except Exception as e:
 
         print(e)
 
@@ -636,39 +563,18 @@ def main():
     # SYNTHETIC DATA
     # =====================================================
 
-    print_section(
-        "SYNTHETIC DATA GENERATION"
-    )
-
     try:
+
+        if FAST_MODE:
+
+            print(
+                "\nFAST MODE ENABLED"
+            )
 
         synthetic_df = generate_ctgan_data(
             df,
             target_col,
-            epochs=100
-        )
-
-        synthetic_output_path = os.path.join(
-
-            "outputs",
-            "synthetic",
-            "synthetic_dataset.csv"
-        )
-
-        os.makedirs(
-
-            os.path.dirname(
-                synthetic_output_path
-            ),
-
-            exist_ok=True
-        )
-
-        synthetic_df.to_csv(
-
-            synthetic_output_path,
-
-            index=False
+            epochs=50
         )
 
         df = pd.concat(
@@ -678,56 +584,17 @@ def main():
             ignore_index=True
         )
 
-        print(
-            "\nSynthetic Data Generated Successfully"
-        )
-
-        print(
-            f"Synthetic Samples Added : "
-            f"{len(synthetic_df)}"
-        )
+        optimize_memory()
 
     except Exception as e:
-
-        print(
-            "\nSynthetic Data Generation Failed"
-        )
 
         print(e)
 
     # =====================================================
-    # BIAS DETECTION
+    # FAIRNESS
     # =====================================================
-
-    print_section(
-        "BIAS DETECTION"
-    )
-
-    bias_report = detect_all_biases(df)
-
-    for bias, status in bias_report.items():
-
-        print(
-
-            f"{bias} : "
-
-            f"{'Detected' if status else 'Absent'}"
-        )
-
-    generate_bias_table(
-        bias_report
-    )
-
-    # =====================================================
-    # FAIRNESS ANALYSIS
-    # =====================================================
-
-    print_section(
-        "FAIRNESS ANALYSIS"
-    )
 
     fairness_results, fairness_score = (
-
         calculate_fairness(
             df,
             target_col
@@ -738,63 +605,23 @@ def main():
     # FAIRNESS FIX
     # =====================================================
 
-    print_section(
-        "FAIRNESS FIX"
-    )
-
     try:
 
         df = apply_fairness_fix(
-
             df,
-
             fairness_results,
-
             target_col
         )
 
-    except Exception as e:
-
-        print(
-            "\nFairness Fix Failed"
-        )
-
-        print(e)
-
-    # =====================================================
-    # PROXY BIAS REMOVAL
-    # =====================================================
-
-    print_section(
-        "PROXY BIAS REMOVAL"
-    )
-
-    try:
-
-        df = remove_proxy_bias(
-
-            df,
-
-            target_col,
-
-            threshold=0.80
-        )
+        optimize_memory()
 
     except Exception as e:
-
-        print(
-            "\nProxy Bias Removal Failed"
-        )
 
         print(e)
 
     # =====================================================
     # SKEWNESS FIX
     # =====================================================
-
-    print_section(
-        "SKEWNESS FIX"
-    )
 
     try:
 
@@ -803,40 +630,15 @@ def main():
             target_col
         )
 
-    except Exception as e:
+        optimize_memory()
 
-        print(
-            "\nSkewness Fix Failed"
-        )
+    except Exception as e:
 
         print(e)
 
     # =====================================================
-    # BIAS RECHECK
-    # =====================================================
-
-    print_section(
-        "BIAS RECHECK"
-    )
-
-    final_bias_report = detect_all_biases(df)
-
-    for bias, status in final_bias_report.items():
-
-        print(
-
-            f"{bias} : "
-
-            f"{'Detected' if status else 'Absent'}"
-        )
-
-    # =====================================================
     # EDQS AFTER
     # =====================================================
-
-    print_section(
-        "EDQS AFTER RECTIFICATION"
-    )
 
     edqs_after_metrics = calculate_edqs(
         df,
@@ -845,19 +647,6 @@ def main():
 
     edqs_after = (
         edqs_after_metrics["edqs"]
-    )
-
-    for key, value in edqs_after_metrics.items():
-
-        print(f"{key} : {value}")
-
-    improvement = (
-        edqs_after - edqs_before
-    )
-
-    print(
-        f"\nEDQS Improvement : "
-        f"{improvement:.2f}%"
     )
 
     # =====================================================
@@ -870,20 +659,43 @@ def main():
 
     try:
 
+        plt.clf()
+
         plot_before_after_counts(
             df_before,
             df
         )
+
+        save_current_graph(
+            graph_dir,
+            "before_after_counts"
+        )
+
+        plt.clf()
 
         plot_boxplots(
             df_before,
             df
         )
 
+        save_current_graph(
+            graph_dir,
+            "boxplots"
+        )
+
+        plt.clf()
+
         plot_heatmaps(
             df_before,
             df
         )
+
+        save_current_graph(
+            graph_dir,
+            "heatmaps"
+        )
+
+        plt.clf()
 
         plot_piecharts(
             df_before,
@@ -891,264 +703,35 @@ def main():
             categorical_cols
         )
 
+        save_current_graph(
+            graph_dir,
+            "piecharts"
+        )
+
+        plt.clf()
+
         plot_edqs_comparison(
             edqs_before,
             edqs_after
         )
 
-        plt.show()
+        save_current_graph(
+            graph_dir,
+            "edqs_comparison"
+        )
+
+        plt.close('all')
+
+        optimize_memory()
 
         print(
-            "\nVisualizations Completed"
+            "\nAll Graphs Saved Successfully"
         )
 
     except Exception as e:
 
         print(
             "\nVisualization Error"
-        )
-
-        print(e)
-
-    # =====================================================
-    # ERI
-    # =====================================================
-
-    print_section(
-        "ETHICAL RISK INDEX"
-    )
-
-    missing_pct = (
-
-        df.isnull().sum().sum()
-
-        /
-
-        (df.shape[0] * df.shape[1])
-
-    ) * 100
-
-    counts = df[target_col].value_counts()
-
-    imbalance_ratio = (
-        counts.min()
-        /
-        counts.max()
-    )
-
-    imbalance_pct = (
-        1 - imbalance_ratio
-    ) * 100
-
-    bias_count = sum(
-
-        1 for v in final_bias_report.values()
-
-        if v
-    )
-
-    total_biases = len(
-        final_bias_report
-    )
-
-    eri, risk = calculate_eri(
-
-        missing_pct,
-
-        imbalance_pct,
-
-        bias_count,
-
-        total_biases
-    )
-
-    # =====================================================
-    # METRICS SUMMARY
-    # =====================================================
-
-    metrics_text = f"""
-
-EDQS BEFORE : {edqs_before}
-
-EDQS AFTER : {edqs_after}
-
-Missing Percentage : {missing_pct}
-
-Imbalance Percentage : {imbalance_pct}
-
-Bias Count : {bias_count}
-
-Fairness Score : {fairness_score}
-
-ERI : {eri}
-
-"""
-
-    os.makedirs(
-        "outputs",
-        exist_ok=True
-    )
-
-    with open(
-
-        "outputs/metrics_summary.txt",
-
-        "w",
-
-        encoding="utf-8"
-
-    ) as f:
-
-        f.write(metrics_text)
-
-    print(
-        "\nMetrics Summary Saved"
-    )
-
-    # =====================================================
-    # LLM DECISION ENGINE
-    # =====================================================
-
-    print_section(
-        "LLM DECISION ENGINE"
-    )
-
-    previous_edqs = edqs_after
-
-    max_iterations = 5
-
-    for iteration in range(max_iterations):
-
-        print(
-            f"\n========== LLM ITERATION "
-            f"{iteration + 1} =========="
-        )
-
-        # =============================================
-        # UPDATED METRICS
-        # =============================================
-
-        updated_metrics = calculate_edqs(
-            df,
-            target_col
-        )
-
-        metrics_text = f"""
-
-EDQS : {updated_metrics['edqs']}
-
-Missing Percentage :
-{updated_metrics['missing_pct']}
-
-Imbalance Percentage :
-{updated_metrics['imbalance_pct']}
-
-"""
-
-        # =============================================
-        # GET LLM RECOMMENDATIONS
-        # =============================================
-
-        recommendations = (
-            get_llm_recommendations(
-                metrics_text
-            )
-        )
-
-        print(
-            "\nLLM Recommendations"
-        )
-
-        print(recommendations)
-
-        # =============================================
-        # APPLY RECOMMENDATIONS
-        # =============================================
-
-        df = apply_llm_recommendations(
-
-            df,
-
-            recommendations,
-
-            target_col,
-
-            categorical_cols
-        )
-
-        # =============================================
-        # RECALCULATE EDQS
-        # =============================================
-
-        recalculated_metrics = calculate_edqs(
-            df,
-            target_col
-        )
-
-        new_edqs = (
-            recalculated_metrics["edqs"]
-        )
-
-        print(
-            f"\nUpdated EDQS : "
-            f"{new_edqs:.2f}"
-        )
-
-        # =============================================
-        # CHECK IMPROVEMENT
-        # =============================================
-
-        improvement = abs(
-            new_edqs - previous_edqs
-        )
-
-        print(
-            f"EDQS Improvement : "
-            f"{improvement:.2f}"
-        )
-
-        # =============================================
-        # STOP CONDITION
-        # =============================================
-
-        if improvement < 1:
-
-            print(
-                "\nLLM Optimization Stabilized"
-            )
-
-            break
-
-        previous_edqs = new_edqs
-
-    edqs_after = previous_edqs
-
-    # =====================================================
-    # LLM EXPLANATION
-    # =====================================================
-
-    print_section(
-        "LLM EXPLANATION"
-    )
-
-    try:
-
-        explain_dataset(
-            df,
-
-            target_col,
-
-            edqs_after,
-
-            eri,
-
-            final_bias_report
-        )
-
-    except Exception as e:
-
-        print(
-            "\nLLM Explanation Failed"
         )
 
         print(e)
@@ -1162,6 +745,29 @@ Imbalance Percentage :
     )
 
     try:
+
+        # =================================================
+        # LARGE DATASET SAMPLING
+        # =================================================
+
+        if len(df) > 100000:
+
+            print(
+                "\nLarge Dataset Detected"
+            )
+
+            print(
+                "\nApplying Training Sampling..."
+            )
+
+            df = df.sample(
+                n=50000,
+                random_state=42
+            )
+
+            print(
+                f"\nReduced Training Shape: {df.shape}"
+            )
 
         X = df.drop(
             columns=[target_col]
@@ -1185,23 +791,9 @@ Imbalance Percentage :
             )
         )
 
-        print(
-            "\nTrain Shape :",
-            X_train.shape
-        )
-
-        print(
-            "Test Shape :",
-            X_test.shape
-        )
-
         model = train_model(
             X_train,
             y_train
-        )
-
-        print(
-            "\nModel Training Completed"
         )
 
         y_pred = model.predict(X_test)
@@ -1218,187 +810,45 @@ Imbalance Percentage :
         for key, value in metrics.items():
 
             print(
-                f"{key} : "
-                f"{value:.4f}"
+                f"{key} : {value:.4f}"
             )
-
-        # =================================================
-        # FAIRNESS MODEL EVALUATION
-        # =================================================
-
-        print_section(
-            "FAIRNESS MODEL EVALUATION"
-        )
-
-        try:
-
-            sensitive_feature = (
-                X_test.iloc[:, 0]
-            )
-
-            dpd = (
-                demographic_parity_difference(
-
-                    y_true=y_test,
-
-                    y_pred=y_pred,
-
-                    sensitive_features=sensitive_feature
-                )
-            )
-
-            eod = (
-                equalized_odds_difference(
-
-                    y_true=y_test,
-
-                    y_pred=y_pred,
-
-                    sensitive_features=sensitive_feature
-                )
-            )
-
-            print(
-                f"\nDemographic Parity Difference : "
-                f"{dpd:.4f}"
-            )
-
-            print(
-                f"Equalized Odds Difference : "
-                f"{eod:.4f}"
-            )
-
-        except Exception as e:
-
-            print(
-                "\nFairness Evaluation Failed"
-            )
-
-            print(e)
-
-        # =================================================
-        # SAVE MODEL
-        # =================================================
 
         save_model(model)
 
-        # =================================================
-        # SHAP
-        # =================================================
-
-        print_section(
-            "SHAP EXPLAINABILITY"
-        )
-
-        try:
-
-            generate_shap(
-                model,
-                X_test
-            )
-
-        except Exception as e:
-
-            print(
-                "\nSHAP Generation Failed"
-            )
-
-            print(e)
-
-        # =================================================
-        # REPORT GENERATION
-        # =================================================
-
-        print_section(
-            "FINAL REPORT"
-        )
-
-        try:
-
-            generate_report()
-
-        except Exception as e:
-
-            print(
-                "\nReport Generation Failed"
-            )
-
-            print(e)
+        optimize_memory()
 
     except Exception as e:
 
-        print(
-            "\nModel Training Pipeline Failed"
-        )
-
         print(e)
 
-        ai_explanation = (
-            "AI explanation generation failed."
-        )
-
     # =====================================================
-    # RAI
+    # SAVE FINAL DATASET
     # =====================================================
 
-    print_section(
-        "RESPONSIBLE AI INDEX"
+    os.makedirs(
+        "outputs",
+        exist_ok=True
     )
 
-    rai, status = calculate_rai(
-
-        edqs_after,
-
-        eri,
-
-        bias_count,
-
-        total_biases
+    output_path = os.path.join(
+        "outputs",
+        "final_responsible_ai_dataset.csv"
     )
 
-    # =====================================================
-    # FINAL VERDICT
-    # =====================================================
-
-    print_section(
-        "FINAL AI VERDICT"
+    df.to_csv(
+        output_path,
+        index=False
     )
-
-    if rai >= 80:
-
-        verdict = (
-            "FAIR AI SYSTEM"
-        )
-
-    elif rai >= 60:
-
-        verdict = (
-            "MODERATE AI SYSTEM"
-        )
-
-    else:
-
-        verdict = (
-            "HIGH RISK AI SYSTEM"
-        )
 
     print(
-        f"\nFinal Verdict : "
-        f"{verdict}"
+        f"\nFinal Dataset Saved:\n{output_path}"
     )
 
-    ai_explanation = recommendations
     # =====================================================
-    # PDF REPORT GENERATION
+    # PDF REPORT
     # =====================================================
 
-    print_section(
-        "PDF REPORT GENERATION"
-    )
-
-    try:
-
-        report_content = f"""
+    report_content = f"""
 
 RESPONSIBLE AI REPORT
 
@@ -1407,97 +857,31 @@ RESPONSIBLE AI REPORT
 Dataset:
 {dataset_name}
 
-EDQS Score:
+EDQS BEFORE:
+{edqs_before:.2f}
+
+EDQS AFTER:
 {edqs_after:.2f}
 
-ERI Score:
-{eri:.2f}
-
-RAI Score:
-{rai:.2f}
-
-Final Verdict:
-{verdict}
-
 ====================================
 
-AI EXPLANATION
-
-====================================
-
-{ai_explanation}
+Graphs Folder:
+{graph_dir}
 
 """
 
-        generate_pdf_report(
-
-            "outputs/responsible_ai_report.pdf",
-
-            report_content
-        )
-
-    except Exception as e:
-
-        print(
-            "\nPDF Report Generation Failed"
-        )
-
-        print(e)
-
-    # =====================================================
-    # SAVE FINAL DATASET
-    # =====================================================
-
-    output_path = os.path.join(
-
-        "outputs",
-
-        "final_responsible_ai_dataset.csv"
-    )
-
-    df.to_csv(
-
-        output_path,
-
-        index=False
-    )
-
-    print(
-        f"\nFinal Dataset Saved:\n"
-        f"{output_path}"
+    generate_pdf_report(
+        "outputs/responsible_ai_report.pdf",
+        report_content
     )
 
     # =====================================================
-    # LOGGING
+    # FINAL CLEANUP
     # =====================================================
 
-    log_section(
-        "FINAL RESULTS"
-    )
+    plt.close('all')
 
-    write_log(
-        f"EDQS Before : {edqs_before:.2f}"
-    )
-
-    write_log(
-        f"EDQS After : {edqs_after:.2f}"
-    )
-
-    write_log(
-        f"ERI Score : {eri:.2f}"
-    )
-
-    write_log(
-        f"RAI Score : {rai:.2f}"
-    )
-
-    write_log(
-        f"Final Verdict : {verdict}"
-    )
-
-    write_log(
-        f"Final Dataset Shape : {df.shape}"
-    )
+    optimize_memory()
 
     # =====================================================
     # COMPLETED
@@ -1507,8 +891,6 @@ AI EXPLANATION
         "RESPONSIBLE AI PIPELINE COMPLETED"
     )
 
-
-# %%
 # =========================================================
 # RUN PIPELINE
 # =========================================================
