@@ -1,7 +1,8 @@
+# FULLY FIXED RESPONSIBLE AI PIPELINE
 # =========================================================
 # RESPONSIBLE AI PIPELINE
-# FINAL OPTIMIZED UNIVERSAL VERSION
-# FULLY FIXED GRAPH + MEMORY VERSION
+# FINAL FULLY FIXED OPTIMIZED VERSION
+# BLANK GRAPH + MEMORY + CTGAN + FAST MODE FIXED
 # =========================================================
 
 import os
@@ -9,6 +10,13 @@ import gc
 import warnings
 
 warnings.filterwarnings("ignore")
+
+# =========================================================
+# MATPLOTLIB BACKEND FIX
+# =========================================================
+
+import matplotlib
+matplotlib.use("Agg")
 
 # =========================================================
 # FAST MODE
@@ -47,20 +55,6 @@ from fairlearn.metrics import (
 )
 
 # =========================================================
-# JUPYTER SUPPORT
-# =========================================================
-
-try:
-
-    get_ipython().run_line_magic(
-        'matplotlib',
-        'inline'
-    )
-
-except:
-    pass
-
-# =========================================================
 # REPORTLAB
 # =========================================================
 
@@ -73,6 +67,8 @@ from reportlab.platypus import (
 from reportlab.lib.styles import (
     getSampleStyleSheet
 )
+
+from xml.sax.saxutils import escape
 
 # =========================================================
 # PROJECT MODULES
@@ -160,6 +156,7 @@ from modules.utils.logger import (
     set_log_file,
     write_log
 )
+
 # =========================================================
 # MEMORY OPTIMIZER
 # =========================================================
@@ -167,6 +164,8 @@ from modules.utils.logger import (
 def optimize_memory():
 
     gc.collect()
+
+    plt.close('all')
 
     print(
         "\nMemory Optimization Completed"
@@ -291,25 +290,49 @@ def detect_categorical_columns(
 
 # =========================================================
 # GRAPH OUTPUT DIRECTORY
+# FINAL SAFE VERSION
 # =========================================================
 
 def create_graph_output_folder(dataset_name):
 
-    timestamp = datetime.now().strftime(
-        "%Y%m%d_%H%M%S"
-    )
-
     graph_dir = os.path.join(
         "outputs",
         "graphs",
-        dataset_name.replace(".csv", ""),
-        timestamp
+        dataset_name.replace(".csv", "")
     )
 
+    # CLOSE ALL FIGURES
+    plt.close('all')
+
+    optimize_memory()
+
+    # CREATE GRAPH DIRECTORY
     os.makedirs(
         graph_dir,
         exist_ok=True
     )
+
+    # DELETE ONLY OLD PNG FILES
+    for file in os.listdir(graph_dir):
+
+        if file.endswith(".png"):
+
+            file_path = os.path.join(
+                graph_dir,
+                file
+            )
+
+            try:
+
+                os.remove(file_path)
+
+            except Exception as e:
+
+                print(
+                    f"\nCould Not Delete: {file}"
+                )
+
+                print(e)
 
     return graph_dir
 
@@ -334,15 +357,17 @@ def save_current_graph(
             f"{graph_name}.png"
         )
 
-        plt.draw()
+        fig = plt.gcf()
 
-        plt.tight_layout()
+        fig.tight_layout()
 
-        plt.savefig(
+        dpi_value = 100 if FAST_MODE else 300
+
+        fig.savefig(
 
             output_path,
 
-            dpi=200,
+            dpi=dpi_value,
 
             bbox_inches='tight',
 
@@ -354,7 +379,7 @@ def save_current_graph(
             f"\n{output_path}"
         )
 
-        plt.close()
+        plt.close(fig)
 
         optimize_memory()
 
@@ -385,10 +410,12 @@ def generate_pdf_report(
 
     for line in content.split("\n"):
 
+        safe_line = escape(line)
+
         story.append(
 
             Paragraph(
-                line,
+                safe_line,
                 styles["BodyText"]
             )
         )
@@ -432,6 +459,31 @@ def main():
     )
 
     # =====================================================
+    # FAST MODE DATA REDUCTION
+    # =====================================================
+
+    if FAST_MODE and len(df) > 100000:
+
+        print(
+            "\nFAST MODE LARGE DATASET REDUCTION ENABLED"
+        )
+
+        df = df.sample(
+            n=50000,
+            random_state=42
+        )
+
+    # =====================================================
+    # TARGET COLUMN DETECTION
+    # =====================================================
+
+    target_col = detect_target_column(df)
+
+    print(
+        f"\nTarget Column: {target_col}"
+    )
+
+    # =====================================================
     # GRAPH DIRECTORY
     # =====================================================
 
@@ -469,7 +521,20 @@ def main():
     # COPY BEFORE PROCESSING
     # =====================================================
 
-    df_before = df.copy()
+    if len(df) > 50000:
+
+        print(
+            "\nUsing Sample Copy For Visualization"
+        )
+
+        df_before = df.sample(
+            n=5000,
+            random_state=42
+        ).copy()
+
+    else:
+
+        df_before = df.copy()
 
     # =====================================================
     # PREPROCESSING
@@ -493,16 +558,6 @@ def main():
             columns=["data_type"],
             inplace=True
         )
-
-    # =====================================================
-    # TARGET COLUMN
-    # =====================================================
-
-    target_col = detect_target_column(df)
-
-    print(
-        f"\nTarget Column: {target_col}"
-    )
 
     # =====================================================
     # EDQS BEFORE
@@ -541,6 +596,11 @@ def main():
         )
     )
 
+    categorical_cols = [
+        col for col in categorical_cols
+        if col in df.columns
+    ]
+
     # =====================================================
     # SMOTE
     # =====================================================
@@ -559,6 +619,8 @@ def main():
 
         print(e)
 
+        write_log(str(e))
+
     # =====================================================
     # SYNTHETIC DATA
     # =====================================================
@@ -571,11 +633,29 @@ def main():
                 "\nFAST MODE ENABLED"
             )
 
+            epochs = 5
+
+        else:
+
+            epochs = 50
+
         synthetic_df = generate_ctgan_data(
             df,
             target_col,
-            epochs=50
+            epochs=epochs
         )
+
+        max_rows = min(
+            len(df),
+            10000
+        )
+
+        if len(synthetic_df) > max_rows:
+
+            synthetic_df = synthetic_df.sample(
+                n=max_rows,
+                random_state=42
+            )
 
         df = pd.concat(
 
@@ -589,6 +669,8 @@ def main():
     except Exception as e:
 
         print(e)
+
+        write_log(str(e))
 
     # =====================================================
     # FAIRNESS
@@ -619,6 +701,8 @@ def main():
 
         print(e)
 
+        write_log(str(e))
+
     # =====================================================
     # SKEWNESS FIX
     # =====================================================
@@ -635,6 +719,8 @@ def main():
     except Exception as e:
 
         print(e)
+
+        write_log(str(e))
 
     # =====================================================
     # EDQS AFTER
@@ -659,8 +745,6 @@ def main():
 
     try:
 
-        plt.clf()
-
         plot_before_after_counts(
             df_before,
             df
@@ -670,8 +754,6 @@ def main():
             graph_dir,
             "before_after_counts"
         )
-
-        plt.clf()
 
         plot_boxplots(
             df_before,
@@ -683,19 +765,19 @@ def main():
             "boxplots"
         )
 
-        plt.clf()
+        if not FAST_MODE:
 
-        plot_heatmaps(
-            df_before,
-            df
-        )
+            plot_heatmaps(
+                df_before,
+                df
+            )
 
-        save_current_graph(
-            graph_dir,
-            "heatmaps"
-        )
+            save_current_graph(
+                graph_dir,
+                "heatmaps"
+            )
 
-        plt.clf()
+            sns.reset_defaults()
 
         plot_piecharts(
             df_before,
@@ -707,8 +789,6 @@ def main():
             graph_dir,
             "piecharts"
         )
-
-        plt.clf()
 
         plot_edqs_comparison(
             edqs_before,
@@ -736,6 +816,8 @@ def main():
 
         print(e)
 
+        write_log(str(e))
+
     # =====================================================
     # MODEL TRAINING
     # =====================================================
@@ -745,10 +827,6 @@ def main():
     )
 
     try:
-
-        # =================================================
-        # LARGE DATASET SAMPLING
-        # =================================================
 
         if len(df) > 100000:
 
@@ -775,6 +853,18 @@ def main():
 
         y = df[target_col]
 
+        # =================================================
+        # SAFE STRATIFY
+        # =================================================
+
+        if y.nunique() > 1:
+
+            stratify_option = y
+
+        else:
+
+            stratify_option = None
+
         X_train, X_test, y_train, y_test = (
 
             train_test_split(
@@ -787,7 +877,7 @@ def main():
 
                 random_state=42,
 
-                stratify=y
+                stratify=stratify_option
             )
         )
 
@@ -820,6 +910,8 @@ def main():
     except Exception as e:
 
         print(e)
+
+        write_log(str(e))
 
     # =====================================================
     # SAVE FINAL DATASET
