@@ -1,4 +1,3 @@
-# FULLY FIXED RESPONSIBLE AI PIPELINE
 # =========================================================
 # RESPONSIBLE AI PIPELINE
 # FINAL FULLY FIXED OPTIMIZED VERSION
@@ -290,7 +289,6 @@ def detect_categorical_columns(
 
 # =========================================================
 # GRAPH OUTPUT DIRECTORY
-# FINAL SAFE VERSION
 # =========================================================
 
 def create_graph_output_folder(dataset_name):
@@ -301,18 +299,15 @@ def create_graph_output_folder(dataset_name):
         dataset_name.replace(".csv", "")
     )
 
-    # CLOSE ALL FIGURES
     plt.close('all')
 
     optimize_memory()
 
-    # CREATE GRAPH DIRECTORY
     os.makedirs(
         graph_dir,
         exist_ok=True
     )
 
-    # DELETE ONLY OLD PNG FILES
     for file in os.listdir(graph_dir):
 
         if file.endswith(".png"):
@@ -358,6 +353,8 @@ def save_current_graph(
         )
 
         fig = plt.gcf()
+
+        plt.draw()
 
         fig.tight_layout()
 
@@ -684,6 +681,34 @@ def main():
     )
 
     # =====================================================
+    # PRINT FAIRNESS RESULTS
+    # =====================================================
+
+    if isinstance(fairness_results, pd.DataFrame):
+
+        if not fairness_results.empty:
+
+            print(
+                "\n========== FAIRNESS RESULTS ==========\n"
+            )
+
+            print(
+                fairness_results.to_string(index=False)
+            )
+
+        else:
+
+            print(
+                "\nNo Bias Detected"
+            )
+
+    else:
+
+        print(
+            "\nNo Fairness Results Available"
+        )
+
+    # =====================================================
     # FAIRNESS FIX
     # =====================================================
 
@@ -696,6 +721,10 @@ def main():
         )
 
         optimize_memory()
+
+        print(
+            "\nFairness Fix Applied"
+        )
 
     except Exception as e:
 
@@ -715,6 +744,10 @@ def main():
         )
 
         optimize_memory()
+
+        print(
+            "\nSkewness Fixed"
+        )
 
     except Exception as e:
 
@@ -745,6 +778,10 @@ def main():
 
     try:
 
+        # BEFORE AFTER COUNTS
+
+        plt.figure(figsize=(8, 5))
+
         plot_before_after_counts(
             df_before,
             df
@@ -754,6 +791,10 @@ def main():
             graph_dir,
             "before_after_counts"
         )
+
+        # BOXPLOTS
+
+        plt.figure(figsize=(10, 6))
 
         plot_boxplots(
             df_before,
@@ -765,7 +806,11 @@ def main():
             "boxplots"
         )
 
+        # HEATMAPS
+
         if not FAST_MODE:
+
+            plt.figure(figsize=(10, 8))
 
             plot_heatmaps(
                 df_before,
@@ -779,6 +824,10 @@ def main():
 
             sns.reset_defaults()
 
+        # PIECHARTS
+
+        plt.figure(figsize=(10, 6))
+
         plot_piecharts(
             df_before,
             df,
@@ -789,6 +838,10 @@ def main():
             graph_dir,
             "piecharts"
         )
+
+        # EDQS COMPARISON
+
+        plt.figure(figsize=(8, 5))
 
         plot_edqs_comparison(
             edqs_before,
@@ -852,10 +905,6 @@ def main():
         )
 
         y = df[target_col]
-
-        # =================================================
-        # SAFE STRATIFY
-        # =================================================
 
         if y.nunique() > 1:
 
@@ -989,4 +1038,4 @@ Graphs Folder:
 
 if __name__ == "__main__":
 
-    main()
+    main()++

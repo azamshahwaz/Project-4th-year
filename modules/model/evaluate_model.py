@@ -1,3 +1,8 @@
+# =========================================================
+# MODEL EVALUATION
+# MULTICLASS SAFE VERSION
+# =========================================================
+
 from sklearn.metrics import (
 
     accuracy_score,
@@ -7,39 +12,57 @@ from sklearn.metrics import (
     recall_score,
 
     f1_score
+
 )
 
+# =========================================================
+# EVALUATE MODEL
+# =========================================================
+
 def evaluate_model(
-
     y_test,
-
     y_pred
 ):
 
     metrics = {
 
-        "accuracy":
+        "Accuracy":
         accuracy_score(
             y_test,
             y_pred
         ),
 
-        "precision":
+        "Precision":
         precision_score(
+
             y_test,
-            y_pred
+            y_pred,
+
+            average="weighted",
+
+            zero_division=0
         ),
 
-        "recall":
+        "Recall":
         recall_score(
+
             y_test,
-            y_pred
+            y_pred,
+
+            average="weighted",
+
+            zero_division=0
         ),
 
-        "f1_score":
+        "F1 Score":
         f1_score(
+
             y_test,
-            y_pred
+            y_pred,
+
+            average="weighted",
+
+            zero_division=0
         )
     }
 
