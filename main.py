@@ -1,7 +1,6 @@
 # =========================================================
 # RESPONSIBLE AI PIPELINE
 # FINAL FULLY FIXED OPTIMIZED VERSION
-# BLANK GRAPH + MEMORY + CTGAN + FAST MODE FIXED
 # =========================================================
 
 import os
@@ -36,22 +35,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from datetime import datetime
-
 # =========================================================
 # SKLEARN
 # =========================================================
 
 from sklearn.model_selection import train_test_split
-
-# =========================================================
-# FAIRLEARN
-# =========================================================
-
-from fairlearn.metrics import (
-    demographic_parity_difference,
-    equalized_odds_difference
-)
 
 # =========================================================
 # REPORTLAB
@@ -230,7 +218,7 @@ def print_section(title):
     )
 
 # =========================================================
-# DETECT TARGET COLUMN
+# TARGET COLUMN DETECTION
 # =========================================================
 
 def detect_target_column(df):
@@ -262,7 +250,7 @@ def detect_target_column(df):
     return df.columns[-1]
 
 # =========================================================
-# DETECT CATEGORICAL COLUMNS
+# CATEGORICAL COLUMN DETECTION
 # =========================================================
 
 def detect_categorical_columns(
@@ -323,10 +311,6 @@ def create_graph_output_folder(dataset_name):
 
             except Exception as e:
 
-                print(
-                    f"\nCould Not Delete: {file}"
-                )
-
                 print(e)
 
     return graph_dir
@@ -361,13 +345,9 @@ def save_current_graph(
         dpi_value = 100 if FAST_MODE else 300
 
         fig.savefig(
-
             output_path,
-
             dpi=dpi_value,
-
             bbox_inches='tight',
-
             facecolor='white'
         )
 
@@ -381,10 +361,6 @@ def save_current_graph(
         optimize_memory()
 
     except Exception as e:
-
-        print(
-            "\nGraph Save Failed"
-        )
 
         print(e)
 
@@ -456,7 +432,7 @@ def main():
     )
 
     # =====================================================
-    # FAST MODE DATA REDUCTION
+    # FAST MODE REDUCTION
     # =====================================================
 
     if FAST_MODE and len(df) > 100000:
@@ -471,7 +447,7 @@ def main():
         )
 
     # =====================================================
-    # TARGET COLUMN DETECTION
+    # TARGET COLUMN
     # =====================================================
 
     target_col = detect_target_column(df)
@@ -519,10 +495,6 @@ def main():
     # =====================================================
 
     if len(df) > 50000:
-
-        print(
-            "\nUsing Sample Copy For Visualization"
-        )
 
         df_before = df.sample(
             n=5000,
@@ -619,22 +591,12 @@ def main():
         write_log(str(e))
 
     # =====================================================
-    # SYNTHETIC DATA
+    # CTGAN SYNTHETIC DATA
     # =====================================================
 
     try:
 
-        if FAST_MODE:
-
-            print(
-                "\nFAST MODE ENABLED"
-            )
-
-            epochs = 5
-
-        else:
-
-            epochs = 50
+        epochs = 5 if FAST_MODE else 50
 
         synthetic_df = generate_ctgan_data(
             df,
@@ -655,9 +617,7 @@ def main():
             )
 
         df = pd.concat(
-
             [df, synthetic_df],
-
             ignore_index=True
         )
 
@@ -670,43 +630,38 @@ def main():
         write_log(str(e))
 
     # =====================================================
-    # FAIRNESS
+    # FAIRNESS BEFORE FIX
     # =====================================================
 
-    fairness_results, fairness_score = (
+    bias_results, fairness_score_before = (
         calculate_fairness(
             df,
             target_col
         )
     )
 
-    # =====================================================
-    # PRINT FAIRNESS RESULTS
-    # =====================================================
+    print(
+        "\n========== BIAS REPORT (BEFORE FIX) ==========\n"
+    )
 
-    if isinstance(fairness_results, pd.DataFrame):
+    if isinstance(bias_results, pd.DataFrame):
 
-        if not fairness_results.empty:
-
-            print(
-                "\n========== FAIRNESS RESULTS ==========\n"
-            )
+        if not bias_results.empty:
 
             print(
-                fairness_results.to_string(index=False)
+                bias_results.to_string(index=False)
             )
 
         else:
 
             print(
-                "\nNo Bias Detected"
+                "No Bias Detected"
             )
 
-    else:
-
-        print(
-            "\nNo Fairness Results Available"
-        )
+    print(
+        f"\nOverall Fairness Score Before Fix : "
+        f"{fairness_score_before:.2f}"
+    )
 
     # =====================================================
     # FAIRNESS FIX
@@ -716,14 +671,14 @@ def main():
 
         df = apply_fairness_fix(
             df,
-            fairness_results,
+            bias_results,
             target_col
         )
 
         optimize_memory()
 
         print(
-            "\nFairness Fix Applied"
+            "\nFairness Fix Applied Successfully"
         )
 
     except Exception as e:
@@ -731,6 +686,40 @@ def main():
         print(e)
 
         write_log(str(e))
+
+    # =====================================================
+    # FAIRNESS AFTER FIX
+    # =====================================================
+
+    fairness_results, fairness_score_after = (
+        calculate_fairness(
+            df,
+            target_col
+        )
+    )
+
+    print(
+        "\n========== FAIRNESS RESULTS AFTER FIX ==========\n"
+    )
+
+    if isinstance(fairness_results, pd.DataFrame):
+
+        if not fairness_results.empty:
+
+            print(
+                fairness_results.to_string(index=False)
+            )
+
+        else:
+
+            print(
+                "No Bias Detected After Fix"
+            )
+
+    print(
+        f"\nOverall Fairness Score After Fix : "
+        f"{fairness_score_after:.2f}"
+    )
 
     # =====================================================
     # SKEWNESS FIX
@@ -778,8 +767,6 @@ def main():
 
     try:
 
-        # BEFORE AFTER COUNTS
-
         plt.figure(figsize=(8, 5))
 
         plot_before_after_counts(
@@ -792,8 +779,6 @@ def main():
             "before_after_counts"
         )
 
-        # BOXPLOTS
-
         plt.figure(figsize=(10, 6))
 
         plot_boxplots(
@@ -805,8 +790,6 @@ def main():
             graph_dir,
             "boxplots"
         )
-
-        # HEATMAPS
 
         if not FAST_MODE:
 
@@ -822,10 +805,6 @@ def main():
                 "heatmaps"
             )
 
-            sns.reset_defaults()
-
-        # PIECHARTS
-
         plt.figure(figsize=(10, 6))
 
         plot_piecharts(
@@ -838,8 +817,6 @@ def main():
             graph_dir,
             "piecharts"
         )
-
-        # EDQS COMPARISON
 
         plt.figure(figsize=(8, 5))
 
@@ -863,10 +840,6 @@ def main():
 
     except Exception as e:
 
-        print(
-            "\nVisualization Error"
-        )
-
         print(e)
 
         write_log(str(e))
@@ -881,51 +854,21 @@ def main():
 
     try:
 
-        if len(df) > 100000:
-
-            print(
-                "\nLarge Dataset Detected"
-            )
-
-            print(
-                "\nApplying Training Sampling..."
-            )
-
-            df = df.sample(
-                n=50000,
-                random_state=42
-            )
-
-            print(
-                f"\nReduced Training Shape: {df.shape}"
-            )
-
         X = df.drop(
             columns=[target_col]
         )
 
         y = df[target_col]
 
-        if y.nunique() > 1:
-
-            stratify_option = y
-
-        else:
-
-            stratify_option = None
+        stratify_option = y if y.nunique() > 1 else None
 
         X_train, X_test, y_train, y_test = (
 
             train_test_split(
-
                 X,
-
                 y,
-
                 test_size=0.2,
-
                 random_state=42,
-
                 stratify=stratify_option
             )
         )

@@ -1,87 +1,149 @@
-import pandas as pd
+# =========================================================
+# FAIRNESS FIX MODULE
+# =========================================================
 
+import pandas as pd
+import numpy as np
+
+# =========================================================
+# APPLY FAIRNESS FIX
+# =========================================================
 
 def apply_fairness_fix(
     df,
-    fairness_results,
+    bias_results,
     target_col
 ):
 
     print("\n========== FAIRNESS FIX STARTED ==========")
 
-    high_bias_cols = []
+    df = df.copy()
 
-    # -----------------------------------
-    # FIND HIGH BIAS COLUMNS
-    # -----------------------------------
-    for col, val in fairness_results.items():
+    try:
 
-        if val["gap"] > 0.25:
+        # =================================================
+        # HIGH BIAS TYPES
+        # =================================================
 
-            high_bias_cols.append(col)
+        high_bias = bias_results[
 
-    print("\nHigh Bias Columns:")
-    print(high_bias_cols)
+            bias_results["Probability"] > 0.30
 
-    # -----------------------------------
-    # APPLY FIX
-    # -----------------------------------
-    for col in high_bias_cols:
+        ]
 
-        if (
-            col in df.columns
-            and col != target_col
-        ):
+        print("\nHigh Bias Types:")
 
-            try:
+        print(
+            high_bias["Bias Type"].tolist()
+        )
 
-                unique_vals = df[col].nunique()
+        # =================================================
+        # REPRESENTATION BIAS FIX
+        # =================================================
 
-                # -------------------------
-                # Numerical-like
-                # -------------------------
-                if unique_vals > 5:
+        if "Representation Bias" in high_bias["Bias Type"].values:
 
-                    df[col] = pd.qcut(
-                        df[col],
-                        q=3,
-                        labels=False,
-                        duplicates='drop'
+            print(
+                "\nFixing Representation Bias..."
+            )
+
+            class_counts = (
+                df[target_col]
+                .value_counts()
+            )
+
+            max_count = class_counts.max()
+
+            balanced_data = []
+
+            for cls in class_counts.index:
+
+                cls_df = df[
+                    df[target_col] == cls
+                ]
+
+                if len(cls_df) < max_count:
+
+                    extra = cls_df.sample(
+                        max_count - len(cls_df),
+                        replace=True,
+                        random_state=42
                     )
 
-                    print(
-                        f"{col} → "
-                        f"Binning Applied"
+                    cls_df = pd.concat(
+                        [cls_df, extra]
                     )
 
-                # -------------------------
-                # Low diversity
-                # -------------------------
-                elif unique_vals <= 3:
+                balanced_data.append(cls_df)
 
-                    df.drop(
-                        columns=[col],
-                        inplace=True
+            df = pd.concat(
+                balanced_data,
+                ignore_index=True
+            )
+
+            print(
+                "\nRepresentation Bias Fixed"
+            )
+
+        # =================================================
+        # SELECTION BIAS FIX
+        # =================================================
+
+        if "Selection Bias" in high_bias["Bias Type"].values:
+
+            print(
+                "\nFixing Selection Bias..."
+            )
+
+            df = df.sample(
+                frac=1,
+                random_state=42
+            ).reset_index(drop=True)
+
+            print(
+                "\nSelection Bias Fixed"
+            )
+
+        # =================================================
+        # PROXY BIAS FIX
+        # =================================================
+
+        if "Proxy Bias" in high_bias["Bias Type"].values:
+
+            print(
+                "\nFixing Proxy Bias..."
+            )
+
+            numeric_cols = df.select_dtypes(
+                include=np.number
+            ).columns
+
+            for col in numeric_cols:
+
+                if col != target_col:
+
+                    noise = np.random.normal(
+                        0,
+                        0.01,
+                        len(df)
                     )
 
-                    print(
-                        f"{col} → "
-                        f"Dropped"
+                    df[col] = (
+                        df[col] + noise
                     )
 
-                else:
+            print(
+                "\nProxy Bias Fixed"
+            )
 
-                    print(
-                        f"{col} → "
-                        f"Kept"
-                    )
+        print(
+            "\n========== FAIRNESS FIX COMPLETED =========="
+        )
 
-            except Exception as e:
+        return df
 
-                print(
-                    f"{col} → Error: {e}"
-                )
+    except Exception as e:
 
-    print("\n========== FAIRNESS FIX COMPLETED ==========")
+        print(e)
 
-    return df
+        return df
