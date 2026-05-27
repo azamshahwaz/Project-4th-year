@@ -1,984 +1,908 @@
-# =========================================================
-# RESPONSIBLE AI PIPELINE
-# FINAL FULLY FIXED OPTIMIZED VERSION
-# =========================================================
-
-import os
-import gc
-import warnings
-
+import os,gc,warnings,tkinter as tk
 warnings.filterwarnings("ignore")
-
-# =========================================================
-# MATPLOTLIB BACKEND FIX
-# =========================================================
-
 import matplotlib
 matplotlib.use("Agg")
-
-# =========================================================
-# FAST MODE
-# =========================================================
-
-FAST_MODE = True
-
-# =========================================================
-# BASIC LIBRARIES
-# =========================================================
-
-import tkinter as tk
-from tkinter import filedialog
-
 import pandas as pd
 import numpy as np
-
 import matplotlib.pyplot as plt
-import seaborn as sns
-
-# =========================================================
-# SKLEARN
-# =========================================================
-
+from tkinter import filedialog
 from sklearn.model_selection import train_test_split
-
-# =========================================================
-# REPORTLAB
-# =========================================================
-
-from reportlab.platypus import (
-    SimpleDocTemplate,
-    Paragraph,
-    Spacer
-)
-
-from reportlab.lib.styles import (
-    getSampleStyleSheet
-)
-
+from reportlab.platypus import SimpleDocTemplate,Paragraph,Spacer
+from reportlab.lib.styles import getSampleStyleSheet
 from xml.sax.saxutils import escape
-
-# =========================================================
-# PROJECT MODULES
-# =========================================================
-
 from modules.dataset.loader import load_dataset
-
-from modules.dataset.validator import (
-    validate_dataset
-)
-
-from modules.dataset.summary import (
-    dataset_summary
-)
-
-from modules.preprocessing.preprocessing_pipeline import (
-    preprocess_dataset
-)
-
-from modules.preprocessing.skewness_fixer import (
-    fix_skewness
-)
-
-from modules.balancing.imbalance_detector import (
-    detect_imbalance
-)
-
-from modules.balancing.imbalance_report import (
-    imbalance_report
-)
-
-from modules.balancing.smote_module import (
-    apply_smote
-)
-
-from modules.synthetic.ctgan_generator import (
-    generate_ctgan_data
-)
-
-from modules.bias.fairness_metrics import (
-    calculate_fairness
-)
-
-from modules.bias.fairness_fix import (
-    apply_fairness_fix
-)
-
-from modules.metrics.edqs import (
-    calculate_edqs
-)
-
-from modules.model.train_model import (
-    train_model
-)
-
-from modules.model.evaluate_model import (
-    evaluate_model
-)
-
-from modules.model.save_model import (
-    save_model
-)
-
-from modules.visualization.before_after_graphs import (
-    plot_before_after_counts
-)
-
-from modules.visualization.boxplots import (
-    plot_boxplots
-)
-
-from modules.visualization.heatmaps import (
-    plot_heatmaps
-)
-
-from modules.visualization.piecharts import (
-    plot_piecharts
-)
-
-from modules.visualization.edqs_graph import (
-    plot_edqs_comparison
-)
-
-from modules.utils.logger import (
-    set_log_file,
-    write_log
-)
-
-# =========================================================
-# MEMORY OPTIMIZER
-# =========================================================
-
+from modules.dataset.validator import validate_dataset
+from modules.dataset.summary import dataset_summary
+from modules.preprocessing.preprocessing_pipeline import preprocess_dataset
+from modules.preprocessing.skewness_fixer import fix_skewness
+from modules.balancing.imbalance_detector import detect_imbalance
+from modules.balancing.imbalance_report import imbalance_report
+from modules.balancing.smote_module import apply_smote
+from modules.synthetic.ctgan_generator import generate_ctgan_data
+from modules.bias.fairness_metrics import calculate_fairness
+from modules.bias.fairness_fix import apply_fairness_fix
+from modules.metrics.edqs import calculate_edqs
+from modules.metrics.eri import calculate_eri
+from modules.metrics.rai import calculate_rai
+from modules.model.train_model import train_model
+from modules.model.evaluate_model import evaluate_model
+from modules.model.save_model import save_model
+from modules.visualization.before_after_graphs import plot_before_after_counts
+from modules.visualization.boxplots import plot_boxplots
+from modules.visualization.piecharts import plot_piecharts
+from modules.visualization.edqs_graph import plot_edqs_comparison
+from modules.visualization.bias_visualizations import (bias_bar_graph, bias_heatmap, fairness_comparison_chart)
+from modules.utils.save_metrics import save_metrics
+from modules.utils.logger import set_log_file,write_log
+from modules.llm.llm_decision_engine import (generate_llm_analysis, generate_llm_recommendations)
+FAST_MODE=True
+TEST_SIZE=0.20
+RANDOM_STATE=42
+os.makedirs("outputs",exist_ok=True)
+METRICS_TEXT_PATH=os.path.join("outputs", "all_metrics_log.txt")
+with open(METRICS_TEXT_PATH,"w",encoding="utf-8") as f: f.write("RESPONSIBLE AI METRICS LOG\n\n")
 def optimize_memory():
-
     gc.collect()
-
-    plt.close('all')
-
-    print(
-        "\nMemory Optimization Completed"
-    )
-
-# =========================================================
-# UNIVERSAL FILE PICKER
-# =========================================================
-
-def choose_file():
-
-    try:
-
-        root = tk.Tk()
-
-        root.withdraw()
-
-        root.attributes('-topmost', True)
-
-        file_path = filedialog.askopenfilename(
-
-            title="Select CSV Dataset",
-
-            filetypes=[("CSV Files", "*.csv")]
-        )
-
-        root.destroy()
-
-        if file_path:
-
-            print(
-                "\nDataset Selected Successfully"
-            )
-
-            return file_path
-
-    except Exception as e:
-
-        print(e)
-
-    file_path = input(
-        "\nEnter CSV Path: "
-    ).strip()
-
-    if os.path.exists(file_path):
-
-        return file_path
-
-    raise FileNotFoundError(
-        f"\nFile Not Found:\n{file_path}"
-    )
-
-# =========================================================
-# PRINT SECTION
-# =========================================================
-
+    plt.close("all")
 def print_section(title):
-
-    print(
-        f"\n{'=' * 20} "
-        f"{title} "
-        f"{'=' * 20}"
-    )
-
-# =========================================================
-# TARGET COLUMN DETECTION
-# =========================================================
-
+    print(f"\n{'='*20} {title} {'='*20}")
+def append_metrics_to_txt(title,data):
+    with open(METRICS_TEXT_PATH,"a",encoding="utf-8") as f:
+        f.write(f"\n{'='*60}\n{title}\n{'='*60}\n\n")
+        if isinstance(data,dict):
+            for k,v in data.items():
+                f.write(f"{k} : {v}\n")
+        else:
+            f.write(str(data))
+        f.write("\n")
+def choose_file():
+    try:
+        root=tk.Tk()
+        root.withdraw()
+        root.attributes('-topmost',True)
+        file_path=filedialog.askopenfilename(title="Select CSV Dataset", filetypes=[("CSV Files","*.csv")])
+        root.destroy()
+        if file_path:
+            print("\nDataset Selected Successfully")
+            return file_path
+    except Exception as e:
+        print(e)
+    file_path=input("\nEnter CSV Path: ").strip()
+    if os.path.exists(file_path):
+        return file_path
+    raise FileNotFoundError(file_path)
 def detect_target_column(df):
-
-    possible_targets = [
-
-        col for col in df.columns
-
-        if any(
-
-            keyword in col.lower()
-
-            for keyword in [
-
-                "target",
-                "label",
-                "class",
-                "output",
-                "result",
-                "stroke"
-            ]
-        )
-    ]
-
-    if possible_targets:
-
-        return possible_targets[-1]
-
-    return df.columns[-1]
-
-# =========================================================
-# CATEGORICAL COLUMN DETECTION
-# =========================================================
-
-def detect_categorical_columns(
-    df,
-    target_col
-):
-
-    categorical_cols = []
-
+    print("\nDetecting Target Column...")
+    target_keywords=["target","label","class","output","result","response","status","prediction","survived","default","churn","risk","score","rating"]
+    excluded_keywords=["id","serial","phone","email","timestamp","date","time"]
+    scores={}
+    total_rows=len(df)
     for col in df.columns:
-
-        if col == target_col:
+        score=0
+        lower_col=col.lower()
+        unique_values=df[col].nunique()
+        unique_ratio=unique_values/max(total_rows,1)
+        dtype=str(df[col].dtype)
+        if unique_values<=1:
             continue
-
-        if df[col].dtype == "object":
-
-            categorical_cols.append(col)
-
-        elif df[col].nunique() <= 10:
-
-            categorical_cols.append(col)
-
-    return categorical_cols
-
-# =========================================================
-# GRAPH OUTPUT DIRECTORY
-# =========================================================
-
+        if any(x in lower_col for x in excluded_keywords):
+            score-=100
+        if any(x in lower_col for x in target_keywords):
+            score+=60
+        if col==df.columns[-1]:
+            score+=30
+        if dtype=="object":
+            score+=20
+        if unique_values<=10:
+            score+=25
+        if unique_ratio>0.95:
+            score-=40
+        scores[col]=score
+    sorted_scores=sorted(scores.items(),key=lambda x:x[1],reverse=True)
+    print("\n========== TARGET COLUMN SCORES ==========")
+    for col,score in sorted_scores:
+        print(f"{col} --> {score}")
+    target_col=sorted_scores[0][0]
+    print(f"\nDetected Target Column : {target_col}")
+    return target_col
+def detect_categorical_columns(df,target_col):
+    return [col for col in df.columns if col!=target_col and (str(df[col].dtype)=="object" or "category" in str(df[col].dtype))]
 def create_graph_output_folder(dataset_name):
-
-    graph_dir = os.path.join(
-        "outputs",
-        "graphs",
-        dataset_name.replace(".csv", "")
-    )
-
-    plt.close('all')
-
-    optimize_memory()
-
-    os.makedirs(
-        graph_dir,
-        exist_ok=True
-    )
-
-    for file in os.listdir(graph_dir):
-
-        if file.endswith(".png"):
-
-            file_path = os.path.join(
-                graph_dir,
-                file
-            )
-
-            try:
-
-                os.remove(file_path)
-
-            except Exception as e:
-
-                print(e)
-
+    graph_dir=os.path.join("outputs","graphs", dataset_name.replace(".csv",""))
+    os.makedirs(graph_dir,exist_ok=True)
     return graph_dir
-
-# =========================================================
-# SAVE GRAPH FUNCTION
-# =========================================================
-
-def save_current_graph(
-    graph_dir,
-    graph_name
-):
+def save_current_graph(graph_dir,graph_name):
 
     try:
 
-        os.makedirs(
-            graph_dir,
-            exist_ok=True
-        )
-
-        output_path = os.path.join(
+        output_path=os.path.join(
             graph_dir,
             f"{graph_name}.png"
         )
 
-        fig = plt.gcf()
+        plt.tight_layout()
 
-        plt.draw()
-
-        fig.tight_layout()
-
-        dpi_value = 100 if FAST_MODE else 300
-
-        fig.savefig(
+        plt.savefig(
             output_path,
-            dpi=dpi_value,
-            bbox_inches='tight',
-            facecolor='white'
+            dpi=100,
+            bbox_inches="tight"
         )
 
-        print(
-            f"\nGraph Saved Successfully:"
-            f"\n{output_path}"
-        )
+        print(f"\nGraph Saved Successfully:\n{output_path}")
 
-        plt.close(fig)
-
-        optimize_memory()
+        plt.close()
 
     except Exception as e:
-
         print(e)
 
-# =========================================================
-# PDF REPORT GENERATOR
-# =========================================================
 
-def generate_pdf_report(
-    output_path,
-    content
-):
+def generate_pdf_report(output_path,content):
 
-    doc = SimpleDocTemplate(
-        output_path
-    )
-
-    styles = getSampleStyleSheet()
-
-    story = []
+    doc=SimpleDocTemplate(output_path)
+    styles=getSampleStyleSheet()
+    story=[]
 
     for line in content.split("\n"):
 
-        safe_line = escape(line)
-
         story.append(
-
             Paragraph(
-                safe_line,
+                escape(line),
                 styles["BodyText"]
             )
         )
 
-        story.append(
-            Spacer(1, 10)
-        )
+        story.append(Spacer(1,8))
 
     doc.build(story)
 
-    print(
-        "\nPDF Report Generated Successfully"
-    )
+    print("\nPDF Report Generated Successfully")
 
-# =========================================================
-# MAIN PIPELINE
-# =========================================================
 
-def main():
+def safe_remove_duplicates(df):
 
-    print_section(
-        "RESPONSIBLE AI PIPELINE STARTED"
-    )
+    before=len(df)
 
-    # =====================================================
-    # FILE SELECTION
-    # =====================================================
+    duplicate_percent=(
+        df.duplicated()
+        .mean()
+    )*100
 
-    file_path = choose_file()
+    if duplicate_percent>15:
 
-    # =====================================================
-    # LOAD DATASET
-    # =====================================================
-
-    df = load_dataset(file_path)
-
-    optimize_memory()
-
-    dataset_name = os.path.basename(
-        file_path
-    )
-
-    # =====================================================
-    # FAST MODE REDUCTION
-    # =====================================================
-
-    if FAST_MODE and len(df) > 100000:
+        df=df.drop_duplicates()
 
         print(
-            "\nFAST MODE LARGE DATASET REDUCTION ENABLED"
+            f"\nDuplicate Rows Removed : "
+            f"{before-len(df)}"
         )
-
-        df = df.sample(
-            n=50000,
-            random_state=42
-        )
-
-    # =====================================================
-    # TARGET COLUMN
-    # =====================================================
-
-    target_col = detect_target_column(df)
-
-    print(
-        f"\nTarget Column: {target_col}"
-    )
-
-    # =====================================================
-    # GRAPH DIRECTORY
-    # =====================================================
-
-    graph_dir = create_graph_output_folder(
-        dataset_name
-    )
-
-    # =====================================================
-    # LOGGER
-    # =====================================================
-
-    set_log_file(dataset_name)
-
-    write_log(
-        f"Dataset Name: {dataset_name}"
-    )
-
-    write_log(
-        f"Dataset Shape: {df.shape}"
-    )
-
-    # =====================================================
-    # VALIDATION
-    # =====================================================
-
-    validate_dataset(df)
-
-    # =====================================================
-    # SUMMARY
-    # =====================================================
-
-    dataset_summary(df)
-
-    # =====================================================
-    # COPY BEFORE PROCESSING
-    # =====================================================
-
-    if len(df) > 50000:
-
-        df_before = df.sample(
-            n=5000,
-            random_state=42
-        ).copy()
 
     else:
 
-        df_before = df.copy()
+        print(
+            "\nDuplicate Removal Skipped "
+            "(safe duplicate level)"
+        )
 
-    # =====================================================
-    # PREPROCESSING
-    # =====================================================
+    return df
 
-    df, encoders = preprocess_dataset(df)
+def validate_final_dataset(
+    df,
+    target_col,
+    task_type
+):
+
+    if len(df)==0:
+        raise ValueError(
+            "Dataset became empty"
+        )
+
+    if target_col not in df.columns:
+        raise ValueError(
+            "Target column missing"
+        )
+    print("\n========== TARGET CHECK ==========")
+    print(
+        df[target_col]
+        .value_counts(dropna=False)
+    )
+
+    unique_classes=(
+        df[target_col]
+        .nunique()
+    )
+
+    print(
+        f"\nUnique Classes : "
+        f"{unique_classes}"
+    )
+
+    if task_type=="classification":
+
+        if unique_classes<2:
+
+            raise ValueError(
+                "Classification requires "
+                "minimum 2 classes"
+            )
+
+
+def main():
+
+    print_section("RESPONSIBLE AI PIPELINE STARTED")
+
+    file_path=choose_file()
+
+    df=load_dataset(file_path)
+
+    dataset_name=os.path.basename(file_path)
+
+    graph_dir=create_graph_output_folder(dataset_name)
+
+    set_log_file(dataset_name)
 
     optimize_memory()
 
+    validate_dataset(df)
+
+    dataset_summary(df)
+
+    target_col=detect_target_column(df)
+
+    print(f"\nTarget Column : {target_col}")
+
+    # =====================================
+    # TASK TYPE DETECTION
+    # =====================================
+
+    unique_count=(
+        df[target_col]
+        .nunique()
+    )
+
+    total_rows=len(df)
+
+    if (
+        pd.api.types.is_numeric_dtype(
+            df[target_col]
+        )
+        and (
+            unique_count>15
+            or unique_count/total_rows>0.05
+        )
+    ):
+
+        task_type="regression"
+
+    else:
+
+        task_type="classification"
+
     print(
-        "\nPreprocessing Completed"
+        f"\nTask Type : "
+        f"{task_type.upper()}"
     )
 
-    # =====================================================
-    # REMOVE EXTRA COLUMN
-    # =====================================================
+    df_before=df.copy()
 
-    if "data_type" in df.columns:
+    target_series=(
+    df[target_col]
+    .copy()
+    .reset_index(drop=True)
+)
 
-        df.drop(
-            columns=["data_type"],
-            inplace=True
-        )
+    features_df=df.drop(
+    columns=[target_col]
+)
 
-    # =====================================================
-    # EDQS BEFORE
-    # =====================================================
+    features_df,encoders=preprocess_dataset(
+    features_df
+)
 
-    edqs_before_metrics = calculate_edqs(
-        df,
-        target_col
-    )
+    features_df=features_df.reset_index(
+    drop=True
+)
 
-    edqs_before = (
-        edqs_before_metrics["edqs"]
-    )
+    min_len=min(
+    len(features_df),
+    len(target_series)
+)
 
-    # =====================================================
-    # IMBALANCE DETECTION
-    # =====================================================
+    features_df=features_df.iloc[:min_len]
 
-    imbalance_ratio, class_counts = (
-        detect_imbalance(
-            df,
-            target_col
-        )
-    )
+    target_series=target_series.iloc[:min_len]
 
-    imbalance_report(class_counts)
+    df=pd.concat(
+    [features_df,target_series],
+    axis=1
+)
 
-    # =====================================================
-    # CATEGORICAL COLUMNS
-    # =====================================================
+    optimize_memory()
 
-    categorical_cols = (
-        detect_categorical_columns(
-            df,
-            target_col
-        )
-    )
+    validate_final_dataset(
+    df,
+    target_col,
+    task_type
+)
 
-    categorical_cols = [
-        col for col in categorical_cols
-        if col in df.columns
-    ]
+    print_section("INITIAL METRICS")
 
-    # =====================================================
-    # SMOTE
-    # =====================================================
+    edqs_before_metrics=calculate_edqs(df,target_col, task_type)
 
-    try:
+    edqs_before=edqs_before_metrics["edqs"]
 
-        df = apply_smote(
-            df,
-            target_col,
-            categorical_cols
-        )
+    if task_type=="classification":
 
-        optimize_memory()
-
-    except Exception as e:
-
-        print(e)
-
-        write_log(str(e))
-
-    # =====================================================
-    # CTGAN SYNTHETIC DATA
-    # =====================================================
-
-    try:
-
-        epochs = 5 if FAST_MODE else 50
-
-        synthetic_df = generate_ctgan_data(
-            df,
-            target_col,
-            epochs=epochs
-        )
-
-        max_rows = min(
-            len(df),
-            10000
-        )
-
-        if len(synthetic_df) > max_rows:
-
-            synthetic_df = synthetic_df.sample(
-                n=max_rows,
-                random_state=42
+        imbalance_ratio_before,class_counts_before=(
+            detect_imbalance(
+                df,
+                target_col
             )
-
-        df = pd.concat(
-            [df, synthetic_df],
-            ignore_index=True
         )
 
-        optimize_memory()
-
-    except Exception as e:
-
-        print(e)
-
-        write_log(str(e))
-
-    # =====================================================
-    # FAIRNESS BEFORE FIX
-    # =====================================================
-
-    bias_results, fairness_score_before = (
-        calculate_fairness(
-            df,
-            target_col
+        imbalance_report(
+            class_counts_before
         )
-    )
 
-    print(
-        "\n========== BIAS REPORT (BEFORE FIX) ==========\n"
-    )
+    else:
 
-    if isinstance(bias_results, pd.DataFrame):
+        imbalance_ratio_before=0
 
-        if not bias_results.empty:
+        class_counts_before={}
+
+    if task_type=="classification":
+
+        bias_results_before,fairness_before=(
+            calculate_fairness(df,target_col)
+        )
+
+    else:
+
+        bias_results_before=[]
+        fairness_before=1.0
+
+    print(f"\nFairness Before : {fairness_before:.2f}")
+
+    X=df.drop(columns=[target_col])
+    y=df[target_col]
+
+    stratify_option=None
+
+    if task_type=="classification":
+
+        class_counts=(
+            y.value_counts()
+        )
+
+        min_class_count=(
+            class_counts.min()
+        )
+
+        print(
+            "\n========== STRATIFY CHECK =========="
+        )
+
+        print(class_counts)
+
+        if min_class_count>=2:
+
+            stratify_option=y
 
             print(
-                bias_results.to_string(index=False)
+                "\nStratify Enabled"
             )
 
         else:
 
             print(
-                "No Bias Detected"
+                "\nStratify Disabled "
+                "(very small class detected)"
             )
 
-    print(
-        f"\nOverall Fairness Score Before Fix : "
-        f"{fairness_score_before:.2f}"
+    X_train,X_test,y_train,y_test=train_test_split(
+        X,
+        y,
+        test_size=TEST_SIZE,
+        random_state=RANDOM_STATE,
+        stratify=stratify_option
     )
 
-    # =====================================================
-    # FAIRNESS FIX
-    # =====================================================
+    train_df=pd.concat([X_train,y_train],axis=1)
+
+    categorical_cols=[]
+
+    for col in train_df.columns:
+
+        if col!=target_col:
+
+            unique_count=(
+                train_df[col]
+                .nunique()
+            )
+
+            if unique_count<=10:
+
+                categorical_cols.append(
+                    col
+                )
+
+    if task_type=="classification":
+
+        try:
+
+            imbalance_ratio_train,_=detect_imbalance(
+                train_df,
+                target_col
+            )
+
+            class_counts=(
+                train_df[target_col]
+                .value_counts()
+            )
+
+            min_class_count=(
+                class_counts.min()
+            )
+
+            if (
+                imbalance_ratio_train<0.80
+                and min_class_count>=2
+            ):
+
+                smote_output=apply_smote(
+    train_df,
+    target_col,
+    categorical_cols
+)
+
+                if smote_output is not None:
+
+                    train_df=smote_output
+
+                    print(
+        "\nSMOTE Applied "
+        "On Training Data"
+    )
+
+                else:
+
+                    print(
+        "\nSMOTE Failed"
+    )
+
+            else:
+
+                print(
+                    "\nSMOTE Skipped "
+                    "(very small class detected)"
+                )
+
+        except Exception as e:
+            print(e)
+            write_log(str(e))
 
     try:
 
-        df = apply_fairness_fix(
-            df,
-            bias_results,
-            target_col
-        )
+        if (
 
-        optimize_memory()
+            task_type=="classification"
 
-        print(
-            "\nFairness Fix Applied Successfully"
-        )
+            and
 
-    except Exception as e:
+            len(train_df)<5000
 
-        print(e)
+            and
 
-        write_log(str(e))
+            imbalance_ratio_before<0.50
+        ):
 
-    # =====================================================
-    # FAIRNESS AFTER FIX
-    # =====================================================
+            ctgan_df=train_df.copy()
 
-    fairness_results, fairness_score_after = (
-        calculate_fairness(
-            df,
-            target_col
-        )
-    )
+            for col in ctgan_df.select_dtypes(
+                include=["object"]
+            ).columns:
 
-    print(
-        "\n========== FAIRNESS RESULTS AFTER FIX ==========\n"
-    )
+                ctgan_df[col]=(
+                    ctgan_df[col]
+                    .astype("category")
+                    .cat.codes
+                )
 
-    if isinstance(fairness_results, pd.DataFrame):
-
-        if not fairness_results.empty:
-
-            print(
-                fairness_results.to_string(index=False)
+            synthetic_df=generate_ctgan_data(
+                ctgan_df,
+                target_col,
+                epochs=5
             )
+
+            synthetic_df=(
+                synthetic_df
+                .dropna()
+                .drop_duplicates()
+            )
+
+            if task_type=="regression":
+
+                original_min=(
+                    df[target_col]
+                    .min()
+                )
+
+                original_max=(
+                    df[target_col]
+                    .max()
+                )
+
+                synthetic_df[target_col]=(
+
+                    synthetic_df[target_col]
+
+                    .clip(
+                        original_min,
+                        original_max
+                    )
+                )
+
+                synthetic_df[target_col]=(
+
+                    synthetic_df[target_col]
+
+                    .round()
+
+                    .astype(int)
+                )
+
+            if len(synthetic_df)>0:
+
+                train_df=pd.concat(
+                    [
+                        train_df,
+                        synthetic_df
+                    ],
+                    ignore_index=True
+                )
+
+                print(
+                    f"\nSynthetic Rows Added : "
+                    f"{len(synthetic_df)}"
+                )
 
         else:
 
             print(
-                "No Bias Detected After Fix"
+                "\nCTGAN Skipped "
+                "(dataset too large or imbalance low)"
             )
 
-    print(
-        f"\nOverall Fairness Score After Fix : "
-        f"{fairness_score_after:.2f}"
-    )
+    except Exception as e:
 
-    # =====================================================
-    # SKEWNESS FIX
-    # =====================================================
+        print(e)
+
+        write_log(str(e))
+        
+        
+        
+    train_df=safe_remove_duplicates(train_df)
+    
+    if task_type=="classification":
+
+        try:
+
+            train_df=apply_fairness_fix(
+                train_df,
+                bias_results_before,
+                target_col
+            )
+
+            print(
+                "\nFairness Fix Applied Successfully"
+            )
+
+        except Exception as e:
+
+            print(e)
+
+            write_log(str(e))
 
     try:
 
-        df = fix_skewness(
-            df,
+        train_df=fix_skewness(
+            train_df,
             target_col
         )
 
-        optimize_memory()
-
-        print(
-            "\nSkewness Fixed"
-        )
-
     except Exception as e:
-
         print(e)
 
-        write_log(str(e))
+    validate_final_dataset(train_df,target_col, task_type)
 
-    # =====================================================
-    # EDQS AFTER
-    # =====================================================
+    print_section("FINAL FAIRNESS METRICS")
 
-    edqs_after_metrics = calculate_edqs(
-        df,
-        target_col
+    if task_type=="classification":
+
+        bias_results_after,fairness_after=(
+            calculate_fairness(
+                train_df,
+                target_col
+            )
+        )
+    else:
+        bias_results_after=[]
+        fairness_after=1.0
+    print(
+        f"\nFairness After : "
+        f"{fairness_after:.2f}"
     )
 
-    edqs_after = (
-        edqs_after_metrics["edqs"]
+    edqs_after_metrics=calculate_edqs(train_df,target_col, task_type)
+
+    edqs_after=edqs_after_metrics["edqs"]
+
+    if task_type=="classification":
+
+        imbalance_ratio_after,class_counts_after=(
+            detect_imbalance(
+                train_df,
+                target_col
+            )
+        )
+
+    else:
+
+        imbalance_ratio_after=0
+
+        class_counts_after={}
+        
+    if task_type=="classification":
+
+        print(
+            "\n========== FINAL CLASS CHECK =========="
+        )
+
+        print(
+            train_df[target_col]
+            .value_counts()
+        )
+
+    if task_type=="classification":
+
+        if (
+            train_df[target_col]
+            .nunique()<2
+        ):
+
+            raise ValueError(
+                "\nModel training stopped "
+                "because only one class "
+                "is available"
+            )
+            
+    X_train_final=train_df.drop(columns=[target_col])
+    y_train_final=train_df[target_col]
+
+    model=train_model(
+        X_train_final,
+        y_train_final,
+        task_type
     )
 
-    # =====================================================
-    # VISUALIZATION
-    # =====================================================
+    y_pred=model.predict(X_test)
 
-    print_section(
-        "VISUALIZATION"
+    metrics=evaluate_model(
+        y_test,
+        y_pred,
+        task_type
     )
+
+    eri_before=calculate_eri(
+        fairness_score=fairness_before,
+        accuracy=0.50,
+        imbalance_ratio=imbalance_ratio_before,
+        explainability_score=0.50
+    )
+
+    eri_after=calculate_eri(
+
+        fairness_score=
+        fairness_after,
+
+        accuracy=(
+
+            metrics.get(
+                "accuracy",
+                0
+            )
+
+            if task_type=="classification"
+
+            else
+
+            metrics.get(
+                "r2",
+                0
+            )
+        ),
+
+        imbalance_ratio=
+        imbalance_ratio_after,
+
+        explainability_score=0.85
+    )
+
+    rai_before=calculate_rai(
+        edqs_before,
+        fairness_before,
+        0.50,
+        eri_before
+    )
+
+    rai_after=calculate_rai(
+        edqs_after,
+        fairness_after,
+        metrics.get("accuracy",0),
+        eri_after
+    )
+
+    print_section("FINAL METRICS")
+
+    print(f"\nEDQS Before : {edqs_before:.2f}")
+    print(f"EDQS After : {edqs_after:.2f}")
+
+    print(f"\nFairness Before : {fairness_before:.2f}")
+    print(f"Fairness After : {fairness_after:.2f}")
+
+    print(f"\nERI Before : {eri_before:.4f}")
+    print(f"ERI After : {eri_after:.4f}")
+
+    print(f"\nRAI Before : {rai_before:.2f}")
+    print(f"RAI After : {rai_after:.2f}")
 
     try:
 
-        plt.figure(figsize=(8, 5))
+        plt.figure(figsize=(8,5))
+        plot_before_after_counts(df_before,train_df)
+        save_current_graph(graph_dir,"before_after_counts")
 
-        plot_before_after_counts(
-            df_before,
-            df
+        plt.figure(figsize=(8,5))
+        plot_edqs_comparison(edqs_before,edqs_after, task_type)
+        save_current_graph(graph_dir,"edqs_comparison")
+
+        fairness_comparison_chart(
+            fairness_before,
+            fairness_after,
+            graph_dir
         )
 
-        save_current_graph(
-            graph_dir,
-            "before_after_counts"
-        )
+        if (
+            task_type=="classification"
+            and len(bias_results_before)>0
+        ):
 
-        plt.figure(figsize=(10, 6))
-
-        plot_boxplots(
-            df_before,
-            df
-        )
-
-        save_current_graph(
-            graph_dir,
-            "boxplots"
-        )
-
-        if not FAST_MODE:
-
-            plt.figure(figsize=(10, 8))
-
-            plot_heatmaps(
-                df_before,
-                df
+            bias_bar_graph(
+                bias_results_before,
+                graph_dir
             )
 
-            save_current_graph(
-                graph_dir,
-                "heatmaps"
-            )
-
-        plt.figure(figsize=(10, 6))
-
-        plot_piecharts(
-            df_before,
-            df,
-            categorical_cols
-        )
-
-        save_current_graph(
-            graph_dir,
-            "piecharts"
-        )
-
-        plt.figure(figsize=(8, 5))
-
-        plot_edqs_comparison(
-            edqs_before,
-            edqs_after
-        )
-
-        save_current_graph(
-            graph_dir,
-            "edqs_comparison"
-        )
-
-        plt.close('all')
-
-        optimize_memory()
-
-        print(
-            "\nAll Graphs Saved Successfully"
-        )
+        bias_heatmap(train_df,graph_dir)
 
     except Exception as e:
-
         print(e)
 
-        write_log(str(e))
+    metrics_data={
+        "EDQS Before":edqs_before,
+        "EDQS After":edqs_after,
+        "Fairness Before":fairness_before,
+        "Fairness After":fairness_after,
+        "ERI Before":eri_before,
+        "ERI After":eri_after,
+        "RAI Before":rai_before,
+        "RAI After":rai_after
+    }
 
-    # =====================================================
-    # MODEL TRAINING
-    # =====================================================
+    if task_type=="classification":
 
-    print_section(
-        "MODEL TRAINING"
-    )
+        metrics_data.update({
 
-    try:
+            "Accuracy":metrics.get(
+                "accuracy",
+                0
+            ),
 
-        X = df.drop(
-            columns=[target_col]
-        )
+            "Precision":metrics.get(
+                "precision",
+                0
+            ),
 
-        y = df[target_col]
+            "Recall":metrics.get(
+                "recall",
+                0
+            ),
 
-        stratify_option = y if y.nunique() > 1 else None
-
-        X_train, X_test, y_train, y_test = (
-
-            train_test_split(
-                X,
-                y,
-                test_size=0.2,
-                random_state=42,
-                stratify=stratify_option
+            "F1 Score":metrics.get(
+                "f1_score",
+                0
             )
-        )
+        })
 
-        model = train_model(
-            X_train,
-            y_train
-        )
+    else:
 
-        y_pred = model.predict(X_test)
+        metrics_data.update({
 
-        metrics = evaluate_model(
-            y_test,
-            y_pred
-        )
+            "MAE":metrics.get(
+                "mae",
+                0
+            ),
 
-        print(
-            "\n========== MODEL METRICS =========="
-        )
+            "MSE":metrics.get(
+                "mse",
+                0
+            ),
 
-        for key, value in metrics.items():
+            "RMSE":metrics.get(
+                "rmse",
+                0
+            ),
 
-            print(
-                f"{key} : {value:.4f}"
+            "R2 Score":metrics.get(
+                "r2",
+                0
             )
+        })
 
-        save_model(model)
+    append_metrics_to_txt("FINAL METRICS",metrics_data)
 
-        optimize_memory()
+    metrics_path=save_metrics(metrics_data)
 
-    except Exception as e:
+    with open(metrics_path,"r",encoding="utf-8") as f:
+        metrics_text=f.read()
 
-        print(e)
-
-        write_log(str(e))
-
-    # =====================================================
-    # SAVE FINAL DATASET
-    # =====================================================
-
-    os.makedirs(
-        "outputs",
-        exist_ok=True
-    )
-
-    output_path = os.path.join(
+    llm_analysis=generate_llm_analysis(metrics_text)
+    print("\n========== LLM ANALYSIS ==========")
+    print(llm_analysis)
+    recommendations=generate_llm_recommendations(metrics_text)
+    print("\n========== LLM RECOMMENDATIONS ==========")
+    print(recommendations)
+    save_model(model)
+    output_path=os.path.join(
         "outputs",
         "final_responsible_ai_dataset.csv"
     )
-
-    df.to_csv(
-        output_path,
-        index=False
-    )
-
-    print(
-        f"\nFinal Dataset Saved:\n{output_path}"
-    )
-
-    # =====================================================
-    # PDF REPORT
-    # =====================================================
-
-    report_content = f"""
-
+    train_df.to_csv(output_path,index=False)
+    print(f"\nFinal Dataset Saved:\n{output_path}")
+    report_content=f"""
 RESPONSIBLE AI REPORT
-
-====================================
-
-Dataset:
-{dataset_name}
-
-EDQS BEFORE:
-{edqs_before:.2f}
-
-EDQS AFTER:
-{edqs_after:.2f}
-
-====================================
-
-Graphs Folder:
-{graph_dir}
-
+Dataset : {dataset_name}
+EDQS Before : {edqs_before:.2f}
+EDQS After : {edqs_after:.2f}
+Fairness Before : {fairness_before:.2f}
+Fairness After : {fairness_after:.2f}
+ERI Before : {eri_before:.4f}
+ERI After : {eri_after:.4f}
+RAI Before : {rai_before:.2f}
+RAI After : {rai_after:.2f}
+{
+f'''
+Accuracy : {metrics.get("accuracy",0):.4f}
+Precision : {metrics.get("precision",0):.4f}
+Recall : {metrics.get("recall",0):.4f}
+F1 Score : {metrics.get("f1_score",0):.4f}
+'''
+if task_type=="classification"
+else
+f'''
+MAE : {metrics.get("mae",0):.4f}
+MSE : {metrics.get("mse",0):.4f}
+RMSE : {metrics.get("rmse",0):.4f}
+R2 Score : {metrics.get("r2",0):.4f}
+'''
+}
+LLM ANALYSIS:
+{llm_analysis}
 """
-
     generate_pdf_report(
         "outputs/responsible_ai_report.pdf",
         report_content
     )
-
-    # =====================================================
-    # FINAL CLEANUP
-    # =====================================================
-
-    plt.close('all')
-
     optimize_memory()
-
-    # =====================================================
-    # COMPLETED
-    # =====================================================
-
-    print_section(
-        "RESPONSIBLE AI PIPELINE COMPLETED"
-    )
-
-# =========================================================
-# RUN PIPELINE
-# =========================================================
-
-if __name__ == "__main__":
-
+    print_section("RESPONSIBLE AI PIPELINE COMPLETED")
+if __name__=="__main__":
     main()
+
